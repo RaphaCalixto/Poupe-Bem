@@ -1037,7 +1037,7 @@ function HomePage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white">
                   Poupe Bem
                 </p>
-                <h1 className="mt-2 text-3xl font-semibold md:text-4xl">
+                <h1 className="mt-2 text-3xl font-semibold text-white md:text-4xl">
                   Gestao Financeira Inteligente
                 </h1>
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/85 md:text-base">
@@ -1052,12 +1052,20 @@ function HomePage() {
 
             <Show when="signed-out">
               <div className="flex w-full flex-col items-center gap-3 md:flex-row md:justify-center">
-                <SignInButton mode="modal" forceRedirectUrl="/dashboard/resumo">
+                <SignInButton
+                  mode="redirect"
+                  forceRedirectUrl="/dashboard/resumo"
+                  fallbackRedirectUrl="/dashboard/resumo"
+                >
                   <Button className="w-full max-w-sm bg-[var(--m3-primary)] text-[var(--m3-on-primary)] md:w-[260px] md:max-w-none">
                     Entrar
                   </Button>
                 </SignInButton>
-                <SignUpButton mode="modal" forceRedirectUrl="/dashboard/resumo">
+                <SignUpButton
+                  mode="redirect"
+                  forceRedirectUrl="/dashboard/resumo"
+                  fallbackRedirectUrl="/dashboard/resumo"
+                >
                   <Button
                     variant="tonal"
                     className="w-full max-w-sm bg-white/15 text-white backdrop-blur hover:bg-white/25 md:w-[260px] md:max-w-none"

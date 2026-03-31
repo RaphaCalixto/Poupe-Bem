@@ -15,7 +15,14 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* @ts-expect-error - publishable key is resolved via VITE_CLERK_PUBLISHABLE_KEY */}
-    <ClerkProvider afterSignOutUrl="/" localization={ptBR}>
+    <ClerkProvider
+      afterSignOutUrl="/"
+      signInForceRedirectUrl="/dashboard/resumo"
+      signInFallbackRedirectUrl="/dashboard/resumo"
+      signUpForceRedirectUrl="/dashboard/resumo"
+      signUpFallbackRedirectUrl="/dashboard/resumo"
+      localization={ptBR}
+    >
       <BrowserRouter>
         <App />
       </BrowserRouter>
