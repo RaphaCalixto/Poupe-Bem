@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+:root {
+  --m3-background: #f2f5fb;
+  --m3-surface: #f8faff;
+  --m3-surface-container-low: #f3f6fc;
+  --m3-surface-container: #edf1f9;
+  --m3-surface-container-high: #e7ecf6;
+  --m3-primary: #3f5aa9;
+  --m3-on-primary: #ffffff;
+  --m3-on-surface: #1b1e28;
+  --m3-on-surface-variant: #5a6070;
+  --m3-outline: #8f96a8;
+  --m3-outline-variant: #c3cada;
+  --m3-secondary-container: #dbe3ff;
+  --m3-on-secondary-container: #24335f;
+  --pb-primary: #89a6ff;
+  --pb-accent: #10b981;
+  --pb-nav-from: #1a2f66;
+  --pb-nav-via: #132852;
+  --pb-nav-to: #0f1f43;
+  --m3-elevation-1:
+    0 1px 2px rgba(18, 30, 76, 0.12), 0 2px 6px rgba(18, 30, 76, 0.08);
+  --m3-elevation-2:
+    0 2px 8px rgba(18, 30, 76, 0.18), 0 8px 24px rgba(18, 30, 76, 0.14);
+
+  font-family: "Roboto Flex", "Segoe UI", sans-serif;
+}
+
+:root.dark {
+  --m3-background: #0f131d;
+  --m3-surface: #161b26;
+  --m3-surface-container-low: #1b212d;
+  --m3-surface-container: #222938;
+  --m3-surface-container-high: #293143;
+  --m3-primary: #89a6ff;
+  --m3-on-primary: #0d1a44;
+  --m3-on-surface: #e8ecf7;
+  --m3-on-surface-variant: #adb6cc;
+  --m3-outline: #7c879f;
+  --m3-outline-variant: #3a4459;
+  --m3-secondary-container: #2b3657;
+  --m3-on-secondary-container: #dbe4ff;
+  --pb-primary: #89a6ff;
+  --pb-accent: #10b981;
+  --pb-nav-from: #1a2f66;
+  --pb-nav-via: #132852;
+  --pb-nav-to: #0f1f43;
+  --m3-elevation-1:
+    0 2px 5px rgba(0, 0, 0, 0.35), 0 8px 16px rgba(0, 0, 0, 0.25);
+  --m3-elevation-2:
+    0 6px 18px rgba(0, 0, 0, 0.45), 0 18px 36px rgba(0, 0, 0, 0.35);
+}
+
+body {
+  margin: 0;
+  background: var(--m3-background);
+  color: var(--m3-on-surface);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.glass-surface {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 16px 38px rgba(7, 14, 36, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:root.dark .glass-surface {
+  box-shadow:
+    0 20px 42px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.meta-blue-card {
+  background-color: rgba(19, 40, 82, 0.88);
+  border-color: rgba(151, 183, 255, 0.34);
+  color: #e9f0ff;
+  --m3-on-surface: #e9f0ff;
+  --m3-on-surface-variant: #a8bce8;
+  --m3-outline-variant: rgba(151, 183, 255, 0.34);
+  --m3-surface: rgba(10, 24, 52, 0.84);
+  --m3-surface-container: rgba(15, 31, 67, 0.8);
+  --m3-surface-container-low: rgba(10, 24, 52, 0.84);
+}
+
+.meta-blue-strong {
+  color: #e9f0ff;
+}
+
+.meta-blue-muted {
+  color: #a8bce8;
+}
+
+.meta-blue-input {
+  background-color: rgba(10, 24, 52, 0.84);
+  border-color: rgba(151, 183, 255, 0.28);
+  color: #e9f0ff;
+}
+
+.meta-blue-input::placeholder {
+  color: #9db2de;
+}
+
+.dashboard-header-glass {
+  background: linear-gradient(
+    100deg,
+    rgba(26, 47, 102, 0.9),
+    rgba(19, 40, 82, 0.86),
+    rgba(15, 31, 67, 0.9)
+  );
+  border-color: rgba(61, 103, 200, 0.4);
+}
+
+.summary-section-glass {
+  background: linear-gradient(
+    130deg,
+    rgba(36, 59, 112, 0.8),
+    rgba(22, 39, 83, 0.82),
+    rgba(17, 29, 62, 0.86)
+  );
+  border-color: rgba(124, 157, 226, 0.34);
+  color: #f5f8ff;
+  --m3-on-surface: #f5f8ff;
+  --m3-on-surface-variant: #c7d5f5;
+  --m3-outline-variant: rgba(176, 199, 244, 0.35);
+  --m3-surface: rgba(9, 22, 50, 0.72);
+  --m3-surface-container: rgba(15, 31, 67, 0.7);
+  --m3-surface-container-low: rgba(18, 38, 79, 0.68);
+}
+
+.chart-evolution-glass {
+  background-color: rgba(17, 39, 92, 0.86);
+  border-color: rgba(87, 131, 229, 0.42);
+}
+
+:root.dark .dashboard-header-glass {
+  background: linear-gradient(
+    100deg,
+    rgba(26, 47, 102, 0.92),
+    rgba(19, 40, 82, 0.9),
+    rgba(15, 31, 67, 0.92)
+  );
+  border-color: rgba(90, 133, 228, 0.42);
+}
+
+:root.dark .summary-section-glass {
+  background: linear-gradient(
+    130deg,
+    rgba(36, 59, 112, 0.82),
+    rgba(22, 39, 83, 0.84),
+    rgba(17, 29, 62, 0.9)
+  );
+  border-color: rgba(124, 157, 226, 0.36);
+  color: #f5f8ff;
+  --m3-on-surface: #f5f8ff;
+  --m3-on-surface-variant: #c7d5f5;
+  --m3-outline-variant: rgba(176, 199, 244, 0.35);
+  --m3-surface: rgba(9, 22, 50, 0.74);
+  --m3-surface-container: rgba(15, 31, 67, 0.72);
+  --m3-surface-container-low: rgba(18, 38, 79, 0.7);
+}
+
+:root.dark .chart-evolution-glass {
+  background-color: rgba(14, 34, 82, 0.88);
+  border-color: rgba(87, 131, 229, 0.45);
+}
