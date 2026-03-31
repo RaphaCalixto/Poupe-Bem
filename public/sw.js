@@ -1,4 +1,4 @@
-const CACHE_NAME = 'poupe-bem-v1'
+const CACHE_NAME = 'poupe-bem-v2'
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -31,21 +31,53 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  const requestUrl = new URL(event.request.url)
+  const sameOrigin = requestUrl.origin === self.location.origin
+  const hasQuery = requestUrl.search.length > 0
+  const isNavigation = event.request.mode === 'navigate'
+
+  // Nunca cacheia fluxos com query string (ex.: callbacks de auth do Clerk)
+  if (hasQuery) {
+    event.respondWith(fetch(event.request))
+    return
+  }
+
+  // Navegação: network-first para evitar retorno de tela antiga após login
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => response)
+        .catch(() => caches.match('/index.html')),
+    )
+    return
+  }
+
+  // Só faz cache de assets do próprio domínio
+  if (!sameOrigin) {
+    return
+  }
+
+  const canCacheDestination = ['script', 'style', 'image', 'font', 'manifest'].includes(
+    event.request.destination,
+  )
+
+  if (!canCacheDestination) {
+    return
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) {
         return cached
       }
 
-      return fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone)
-          })
-          return response
+      return fetch(event.request).then((response) => {
+        const responseClone = response.clone()
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseClone)
         })
-        .catch(() => caches.match('/index.html'))
+        return response
+      })
     }),
   )
 })

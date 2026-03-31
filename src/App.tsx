@@ -946,7 +946,7 @@ function getInitialThemeMode(): ThemeMode {
 }
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isLoaded, userId } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
 
   if (!isLoaded) {
     return (
@@ -956,7 +956,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
     )
   }
 
-  if (!userId) {
+  if (!isSignedIn) {
     return <Navigate to="/" replace />
   }
 
