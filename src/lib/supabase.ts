@@ -10,3 +10,13 @@ if (!supabaseUrl || !supabasePublishableKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey)
+
+export function createSupabaseClientWithClerkToken(clerkToken: string) {
+  return createClient(supabaseUrl, supabasePublishableKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${clerkToken}`,
+      },
+    },
+  })
+}

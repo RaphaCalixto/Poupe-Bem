@@ -6,7 +6,7 @@
   useAuth,
   useUser,
 } from '@clerk/react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import {
   Area,
@@ -67,6 +67,7 @@ import {
   CardHeader,
   CardTitle,
 } from './components/ui/card'
+import { createSupabaseClientWithClerkToken } from './lib/supabase'
 import { cn } from './lib/utils'
 import authBackground from '../assets/controle-financeiro-clinica-fisioterapia.jpg'
 import cardBackground from '../assets/finance-background-utqgb7jd02d72akj.jpg'
@@ -196,6 +197,82 @@ interface TransactionFormState {
   installmentCount: number
 }
 
+interface DbTransactionRow {
+  id: string
+  group_id: string
+  type: TransactionType
+  category_key: string
+  category_label: string
+  description: string | null
+  amount: number | string
+  entry_date: string
+  first_installment_date: string
+  installment_number: number
+  installment_count: number
+  created_at: string
+}
+
+interface DbGoalRow {
+  id: string
+  name: string
+  target_amount: number | string
+  current_amount: number | string
+  target_date: string
+  created_at: string
+}
+
+interface DbRecurringRow {
+  id: string
+  name: string
+  type: TransactionType
+  category_key: string
+  amount: number | string
+  frequency: RecurringFrequency
+  next_due_date: string
+  is_active: boolean
+  description: string | null
+  created_at: string
+}
+
+interface DbInvestmentRow {
+  id: string
+  name: string
+  type: InvestmentType
+  invested_amount: number | string
+  current_value: number | string
+  start_date: string
+  notes: string | null
+  is_active: boolean
+  created_at: string
+}
+
+interface DbUserCategoryRow {
+  id: string
+  type: TransactionType
+  label: string
+  emoji: string
+  icon_key: string | null
+  is_active: boolean
+  created_at: string
+}
+
+interface DbUserThemeRow {
+  id: string
+  name: string
+  primary_color: string
+  accent_color: string
+  nav_from: string
+  nav_via: string
+  nav_to: string
+  is_active: boolean
+  created_at: string
+}
+
+type DbContext = {
+  db: ReturnType<typeof createSupabaseClientWithClerkToken>
+  appUserId: string
+}
+
 interface DashboardPageProps {
   transactions: Transaction[]
   categories: CategoryDef[]
@@ -207,7 +284,7 @@ interface DashboardPageProps {
     emoji: string
     label: string
     iconKey?: string
-  }) => void
+  }) => void | Promise<void>
   onCreateGoal: (input: { name: string; targetAmount: number; targetDate: string }) => void
   onUpdateGoal: (goal: FinancialGoal) => void
   onDeleteGoal: (goalId: string) => void
@@ -216,9 +293,10 @@ interface DashboardPageProps {
   onToggleThemeMode: () => void
   themePresets: CustomTheme[]
   activeThemeId: string
-  onCreateTheme: (input: Omit<CustomTheme, 'id' | 'createdAt'>) => void
-  onApplyTheme: (themeId: string) => void
-  onDeleteTheme: (themeId: string) => void
+  onCreateTheme: (input: Omit<CustomTheme, 'id' | 'createdAt'>) => void | Promise<void>
+  onApplyTheme: (themeId: string) => void | Promise<void>
+  onDeleteTheme: (themeId: string) => void | Promise<void>
+  getDbContext: () => Promise<DbContext | null>
 }
 
 interface AddTransactionModalProps {
@@ -479,7 +557,11 @@ function generateId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
   }
-  return `${Date.now()}-${Math.random()}`
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16)
+    const value = char === 'x' ? random : (random & 0x3) | 0x8
+    return value.toString(16)
+  })
 }
 
 function addMonths(date: Date, amount: number) {
@@ -507,6 +589,102 @@ function splitAmountInInstallments(total: number, count: number) {
     const cents = baseCents + (index < remainder ? 1 : 0)
     return cents / 100
   })
+}
+
+function toDbTransactionRows(transactions: Transaction[], userId: string) {
+  return transactions.map((item) => ({
+    user_id: userId,
+    group_id: item.groupId,
+    type: item.type,
+    category_key: item.categoryKey,
+    category_label: item.categoryLabel,
+    description: item.description || null,
+    amount: item.value,
+    entry_date: item.date,
+    first_installment_date: item.firstInstallmentDate,
+    installment_number: item.installmentNumber,
+    installment_count: item.installmentCount,
+  }))
+}
+
+function mapDbTransactionRow(row: DbTransactionRow): Transaction {
+  return {
+    id: row.id,
+    groupId: row.group_id,
+    type: row.type,
+    date: row.entry_date,
+    value: Number(row.amount ?? 0),
+    categoryKey: row.category_key,
+    categoryLabel: row.category_label,
+    description: row.description ?? '',
+    installmentNumber: row.installment_number,
+    installmentCount: row.installment_count,
+    firstInstallmentDate: row.first_installment_date,
+    createdAt: row.created_at,
+  }
+}
+
+function mapDbGoalRow(row: DbGoalRow): FinancialGoal {
+  return {
+    id: row.id,
+    name: row.name,
+    targetAmount: Number(row.target_amount ?? 0),
+    currentAmount: Number(row.current_amount ?? 0),
+    targetDate: row.target_date,
+    createdAt: row.created_at,
+  }
+}
+
+function mapDbRecurringRow(row: DbRecurringRow): RecurringTransaction {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    categoryKey: row.category_key,
+    amount: Number(row.amount ?? 0),
+    frequency: row.frequency,
+    nextDueDate: row.next_due_date,
+    isActive: row.is_active,
+    description: row.description ?? '',
+    createdAt: row.created_at,
+  }
+}
+
+function mapDbInvestmentRow(row: DbInvestmentRow): InvestmentPosition {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    investedAmount: Number(row.invested_amount ?? 0),
+    currentValue: Number(row.current_value ?? 0),
+    startDate: row.start_date,
+    notes: row.notes ?? '',
+    isActive: row.is_active,
+    createdAt: row.created_at,
+  }
+}
+
+function mapDbUserCategoryRow(row: DbUserCategoryRow): CategoryDef {
+  return {
+    key: row.id,
+    type: row.type,
+    label: row.label,
+    emoji: row.emoji || '📌',
+    iconKey: row.icon_key ?? undefined,
+  }
+}
+
+function mapDbUserThemeRow(row: DbUserThemeRow): CustomTheme {
+  return {
+    id: row.id,
+    name: row.name,
+    primaryColor: row.primary_color,
+    accentColor: row.accent_color,
+    navFrom: row.nav_from,
+    navVia: row.nav_via,
+    navTo: row.nav_to,
+    createdAt: row.created_at,
+  }
 }
 
 function buildChartData(transactions: Transaction[]) {
@@ -1127,6 +1305,7 @@ function DashboardPage({
   onCreateTheme,
   onApplyTheme,
   onDeleteTheme,
+  getDbContext,
 }: DashboardPageProps) {
   const { user } = useUser()
   const { section } = useParams<{ section?: string }>()
@@ -1253,6 +1432,47 @@ function DashboardPage({
       JSON.stringify(investmentPositions),
     )
   }, [investmentPositions])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const syncDashboardModulesFromDb = async () => {
+      const context = await getDbContext()
+      if (!context || isCancelled) {
+        return
+      }
+
+      const [{ data: recurringRows, error: recurringError }, { data: investmentRows, error: investmentError }] =
+        await Promise.all([
+          context.db
+            .from('recurring_transactions')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          context.db
+            .from('investment_positions')
+            .select('*')
+            .order('created_at', { ascending: false }),
+        ])
+
+      if (!recurringError && recurringRows && !isCancelled) {
+        setRecurringTransactions(
+          (recurringRows as DbRecurringRow[]).map(mapDbRecurringRow),
+        )
+      }
+
+      if (!investmentError && investmentRows && !isCancelled) {
+        setInvestmentPositions(
+          (investmentRows as DbInvestmentRow[]).map(mapDbInvestmentRow),
+        )
+      }
+    }
+
+    void syncDashboardModulesFromDb()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [getDbContext])
 
   const monthIncome = useMemo(
     () =>
@@ -1787,7 +2007,7 @@ function DashboardPage({
     setEditingRecurringId(null)
   }
 
-  const handleCreateOrUpdateRecurring = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateOrUpdateRecurring = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const name = recurringFormName.trim()
@@ -1800,6 +2020,70 @@ function DashboardPage({
       !recurringFormNextDate
     ) {
       return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      if (editingRecurringId) {
+        const { error } = await context.db
+          .from('recurring_transactions')
+          .update({
+            name,
+            type: recurringFormType,
+            amount,
+            category_key: recurringFormCategoryKey,
+            frequency: recurringFormFrequency,
+            next_due_date: recurringFormNextDate,
+            description: recurringFormDescription.trim() || null,
+          })
+          .eq('id', editingRecurringId)
+
+        if (!error) {
+          const { data: recurringRows, error: fetchError } = await context.db
+            .from('recurring_transactions')
+            .select('*')
+            .order('created_at', { ascending: false })
+          if (!fetchError && recurringRows) {
+            setRecurringTransactions(
+              (recurringRows as DbRecurringRow[]).map(mapDbRecurringRow),
+            )
+            setIsRecurringFormOpen(false)
+            resetRecurringForm()
+            return
+          }
+        } else {
+          console.error('Falha ao atualizar recorrente no Supabase:', error)
+        }
+      } else {
+        const { error } = await context.db.from('recurring_transactions').insert({
+          user_id: context.appUserId,
+          name,
+          type: recurringFormType,
+          amount,
+          category_key: recurringFormCategoryKey,
+          frequency: recurringFormFrequency,
+          next_due_date: recurringFormNextDate,
+          is_active: true,
+          description: recurringFormDescription.trim() || null,
+        })
+
+        if (!error) {
+          const { data: recurringRows, error: fetchError } = await context.db
+            .from('recurring_transactions')
+            .select('*')
+            .order('created_at', { ascending: false })
+          if (!fetchError && recurringRows) {
+            setRecurringTransactions(
+              (recurringRows as DbRecurringRow[]).map(mapDbRecurringRow),
+            )
+            setIsRecurringFormOpen(false)
+            resetRecurringForm()
+            return
+          }
+        } else {
+          console.error('Falha ao criar recorrente no Supabase:', error)
+        }
+      }
     }
 
     if (editingRecurringId) {
@@ -1863,7 +2147,7 @@ function DashboardPage({
     setEditingInvestmentId(null)
   }
 
-  const handleCreateOrUpdateInvestment = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateOrUpdateInvestment = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const name = investmentFormName.trim()
@@ -1878,6 +2162,68 @@ function DashboardPage({
       !investmentFormStartDate
     ) {
       return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      if (editingInvestmentId) {
+        const { error } = await context.db
+          .from('investment_positions')
+          .update({
+            name,
+            type: investmentFormType,
+            invested_amount: investedAmount,
+            current_value: currentValue,
+            start_date: investmentFormStartDate,
+            notes: investmentFormNotes.trim() || null,
+          })
+          .eq('id', editingInvestmentId)
+
+        if (!error) {
+          const { data: investmentRows, error: fetchError } = await context.db
+            .from('investment_positions')
+            .select('*')
+            .order('created_at', { ascending: false })
+          if (!fetchError && investmentRows) {
+            setInvestmentPositions(
+              (investmentRows as DbInvestmentRow[]).map(mapDbInvestmentRow),
+            )
+            setIsInvestmentFormOpen(false)
+            resetInvestmentForm()
+            return
+          }
+        } else {
+          console.error('Falha ao atualizar investimento no Supabase:', error)
+        }
+      } else {
+        const { error } = await context.db.from('investment_positions').insert({
+          user_id: context.appUserId,
+          name,
+          type: investmentFormType,
+          invested_amount: investedAmount,
+          current_value: currentValue,
+          start_date: investmentFormStartDate,
+          notes: investmentFormNotes.trim() || null,
+          is_active: true,
+        })
+
+        if (!error) {
+          const { data: investmentRows, error: fetchError } = await context.db
+            .from('investment_positions')
+            .select('*')
+            .order('created_at', { ascending: false })
+          if (!fetchError && investmentRows) {
+            setInvestmentPositions(
+              (investmentRows as DbInvestmentRow[]).map(mapDbInvestmentRow),
+            )
+            setIsInvestmentFormOpen(false)
+            resetInvestmentForm()
+            return
+          }
+        } else {
+          console.error('Falha ao criar investimento no Supabase:', error)
+        }
+      }
     }
 
     if (editingInvestmentId) {
@@ -1915,6 +2261,92 @@ function DashboardPage({
 
     setIsInvestmentFormOpen(false)
     resetInvestmentForm()
+  }
+
+  const handleToggleRecurringActive = async (item: RecurringTransaction) => {
+    const nextIsActive = !item.isActive
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('recurring_transactions')
+        .update({ is_active: nextIsActive })
+        .eq('id', item.id)
+      if (!error) {
+        setRecurringTransactions((previous) =>
+          previous.map((entry) =>
+            entry.id === item.id ? { ...entry, isActive: nextIsActive } : entry,
+          ),
+        )
+        return
+      }
+      console.error('Falha ao alternar recorrente no Supabase:', error)
+    }
+
+    setRecurringTransactions((previous) =>
+      previous.map((entry) =>
+        entry.id === item.id ? { ...entry, isActive: nextIsActive } : entry,
+      ),
+    )
+  }
+
+  const handleDeleteRecurring = async (id: string) => {
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('recurring_transactions')
+        .delete()
+        .eq('id', id)
+      if (!error) {
+        setRecurringTransactions((previous) => previous.filter((entry) => entry.id !== id))
+        return
+      }
+      console.error('Falha ao excluir recorrente no Supabase:', error)
+    }
+
+    setRecurringTransactions((previous) => previous.filter((entry) => entry.id !== id))
+  }
+
+  const handleToggleInvestmentActive = async (item: InvestmentPosition) => {
+    const nextIsActive = !item.isActive
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('investment_positions')
+        .update({ is_active: nextIsActive })
+        .eq('id', item.id)
+      if (!error) {
+        setInvestmentPositions((previous) =>
+          previous.map((entry) =>
+            entry.id === item.id ? { ...entry, isActive: nextIsActive } : entry,
+          ),
+        )
+        return
+      }
+      console.error('Falha ao alternar investimento no Supabase:', error)
+    }
+
+    setInvestmentPositions((previous) =>
+      previous.map((entry) =>
+        entry.id === item.id ? { ...entry, isActive: nextIsActive } : entry,
+      ),
+    )
+  }
+
+  const handleDeleteInvestment = async (id: string) => {
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('investment_positions')
+        .delete()
+        .eq('id', id)
+      if (!error) {
+        setInvestmentPositions((previous) => previous.filter((entry) => entry.id !== id))
+        return
+      }
+      console.error('Falha ao excluir investimento no Supabase:', error)
+    }
+
+    setInvestmentPositions((previous) => previous.filter((entry) => entry.id !== id))
   }
 
   const startEditingInvestment = (item: InvestmentPosition) => {
@@ -3345,15 +3777,7 @@ function DashboardPage({
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setRecurringTransactions((previous) =>
-                                      previous.map((entry) =>
-                                        entry.id === item.id
-                                          ? { ...entry, isActive: !entry.isActive }
-                                          : entry,
-                                      ),
-                                    )
-                                  }
+                                  onClick={() => void handleToggleRecurringActive(item)}
                                   className={cn(
                                     'relative h-6 w-11 rounded-full border transition',
                                     item.isActive
@@ -3383,11 +3807,7 @@ function DashboardPage({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setRecurringTransactions((previous) =>
-                                      previous.filter((entry) => entry.id !== item.id),
-                                    )
-                                  }
+                                  onClick={() => void handleDeleteRecurring(item.id)}
                                   className="rounded-md border border-[var(--m3-outline-variant)] p-2 text-[var(--m3-on-surface-variant)] transition hover:bg-[var(--m3-surface-container)]"
                                   aria-label="Excluir recorrente"
                                 >
@@ -3661,15 +4081,7 @@ function DashboardPage({
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setInvestmentPositions((previous) =>
-                                      previous.map((entry) =>
-                                        entry.id === item.id
-                                          ? { ...entry, isActive: !entry.isActive }
-                                          : entry,
-                                      ),
-                                    )
-                                  }
+                                  onClick={() => void handleToggleInvestmentActive(item)}
                                   className={cn(
                                     'relative h-6 w-11 rounded-full border transition',
                                     item.isActive
@@ -3699,11 +4111,7 @@ function DashboardPage({
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setInvestmentPositions((previous) =>
-                                      previous.filter((entry) => entry.id !== item.id),
-                                    )
-                                  }
+                                  onClick={() => void handleDeleteInvestment(item.id)}
                                   className="rounded-md border border-[var(--m3-outline-variant)] p-2 text-[var(--m3-on-surface-variant)] transition hover:bg-[var(--m3-surface-container)]"
                                   aria-label="Excluir investimento"
                                 >
@@ -4661,7 +5069,10 @@ function EditTransactionModal({
 }
 
 export default function App() {
+  const { isLoaded: isAuthLoaded, isSignedIn, getToken } = useAuth()
+  const { user } = useUser()
   const location = useLocation()
+  const [appUserId, setAppUserId] = useState<string | null>(null)
   const [customCategories, setCustomCategories] = useState<CategoryDef[]>(() =>
     readStoredCustomCategories(),
   )
@@ -4737,7 +5148,122 @@ export default function App() {
     setIsMobileNavOpen(false)
   }, [location.pathname])
 
-  const handleCreateTransaction = (form: TransactionFormState) => {
+  const getDbContext = useCallback(async (): Promise<DbContext | null> => {
+    if (!isAuthLoaded || !isSignedIn || !user?.id) {
+      return null
+    }
+
+    const tokenFromTemplate = await getToken({ template: 'supabase' }).catch(
+      () => null,
+    )
+    const clerkToken = tokenFromTemplate ?? (await getToken().catch(() => null))
+    if (!clerkToken) {
+      return null
+    }
+
+    const db = createSupabaseClientWithClerkToken(clerkToken)
+    let resolvedAppUserId = appUserId
+
+    if (!resolvedAppUserId) {
+      const { data, error } = await db
+        .from('app_users')
+        .upsert(
+          {
+            clerk_user_id: user.id,
+            email: user.primaryEmailAddress?.emailAddress ?? null,
+            full_name: user.fullName ?? user.username ?? null,
+          },
+          { onConflict: 'clerk_user_id' },
+        )
+        .select('id')
+        .single()
+
+      if (error || !data?.id) {
+        console.error('Falha ao garantir app_users:', error)
+        return null
+      }
+
+      resolvedAppUserId = data.id as string
+      setAppUserId(resolvedAppUserId)
+    }
+
+    return { db, appUserId: resolvedAppUserId }
+  }, [isAuthLoaded, isSignedIn, user?.id, user?.fullName, user?.username, user?.primaryEmailAddress?.emailAddress, getToken, appUserId])
+
+  useEffect(() => {
+    if (!isAuthLoaded) {
+      return
+    }
+
+    if (!isSignedIn || !user?.id) {
+      setAppUserId(null)
+      return
+    }
+
+    let isCancelled = false
+
+    const syncFromDatabase = async () => {
+      const context = await getDbContext()
+      if (!context || isCancelled) {
+        return
+      }
+
+      const [
+        { data: dbTransactions, error: txError },
+        { data: dbGoals, error: goalError },
+        { data: dbUserCategories, error: categoriesError },
+        { data: dbUserThemes, error: themesError },
+      ] = await Promise.all([
+        context.db
+          .from('transactions')
+          .select('*')
+          .order('entry_date', { ascending: false })
+          .order('created_at', { ascending: false }),
+        context.db
+          .from('financial_goals')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        context.db
+          .from('user_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false }),
+        context.db
+          .from('user_themes')
+          .select('*')
+          .order('created_at', { ascending: false }),
+      ])
+
+      if (!txError && dbTransactions && !isCancelled) {
+        setTransactions((dbTransactions as DbTransactionRow[]).map(mapDbTransactionRow))
+      }
+
+      if (!goalError && dbGoals && !isCancelled) {
+        setGoals((dbGoals as DbGoalRow[]).map(mapDbGoalRow))
+      }
+
+      if (!categoriesError && dbUserCategories && !isCancelled) {
+        setCustomCategories(
+          (dbUserCategories as DbUserCategoryRow[]).map(mapDbUserCategoryRow),
+        )
+      }
+
+      if (!themesError && dbUserThemes && !isCancelled) {
+        const rows = dbUserThemes as DbUserThemeRow[]
+        setCustomThemes(rows.map(mapDbUserThemeRow))
+        const activeDbTheme = rows.find((theme) => theme.is_active)
+        setActiveThemeId(activeDbTheme?.id ?? defaultThemePreset.id)
+      }
+    }
+
+    void syncFromDatabase()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isAuthLoaded, isSignedIn, user?.id, getDbContext])
+
+  const handleCreateTransaction = async (form: TransactionFormState) => {
     const parsedValue = Number(form.value.replace(',', '.'))
     if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
       return
@@ -4778,11 +5304,36 @@ export default function App() {
       } satisfies Transaction
     })
 
+    const context = await getDbContext()
+
+    if (context) {
+      const { error } = await context.db
+        .from('transactions')
+        .insert(toDbTransactionRows(generatedTransactions, context.appUserId))
+
+      if (!error) {
+        const { data: dbTransactions, error: fetchError } = await context.db
+          .from('transactions')
+          .select('*')
+          .order('entry_date', { ascending: false })
+          .order('created_at', { ascending: false })
+
+        if (!fetchError && dbTransactions) {
+          setTransactions((dbTransactions as DbTransactionRow[]).map(mapDbTransactionRow))
+          setIsAddModalOpen(false)
+          return
+        }
+      } else {
+        console.error('Falha ao salvar transação no Supabase:', error)
+      }
+    }
+
+    // Fallback local quando não houver sessão no Supabase.
     setTransactions((previous) => [...generatedTransactions, ...previous])
     setIsAddModalOpen(false)
   }
 
-  const handleUpdateTransaction = (
+  const handleUpdateTransaction = async (
     id: string,
     form: Omit<TransactionFormState, 'isInstallment' | 'installmentCount'>,
   ) => {
@@ -4794,6 +5345,36 @@ export default function App() {
     const category = getCategoryByKey(form.categoryKey, allCategories)
     if (!category || category.type !== form.type) {
       return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('transactions')
+        .update({
+          type: form.type,
+          entry_date: form.date,
+          amount: parsedValue,
+          category_key: category.key,
+          category_label: category.label,
+          description: form.description.trim() || null,
+        })
+        .eq('id', id)
+
+      if (!error) {
+        const { data: dbTransactions, error: fetchError } = await context.db
+          .from('transactions')
+          .select('*')
+          .order('entry_date', { ascending: false })
+          .order('created_at', { ascending: false })
+        if (!fetchError && dbTransactions) {
+          setTransactions((dbTransactions as DbTransactionRow[]).map(mapDbTransactionRow))
+          setEditingTransaction(null)
+          return
+        }
+      } else {
+        console.error('Falha ao atualizar transação no Supabase:', error)
+      }
     }
 
     setTransactions((previous) =>
@@ -4815,7 +5396,7 @@ export default function App() {
     setEditingTransaction(null)
   }
 
-  const handleCreateCategory = (input: {
+  const handleCreateCategory = async (input: {
     type: TransactionType
     emoji: string
     label: string
@@ -4825,6 +5406,34 @@ export default function App() {
     const emoji = input.emoji.trim()
     if (!label || (!emoji && !input.iconKey)) {
       return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db.from('user_categories').insert({
+        user_id: context.appUserId,
+        type: input.type,
+        label,
+        emoji: emoji || '📌',
+        icon_key: input.iconKey || null,
+        is_active: true,
+      })
+
+      if (!error) {
+        const { data: categoryRows, error: fetchError } = await context.db
+          .from('user_categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+        if (!fetchError && categoryRows) {
+          setCustomCategories(
+            (categoryRows as DbUserCategoryRow[]).map(mapDbUserCategoryRow),
+          )
+          return
+        }
+      } else {
+        console.error('Falha ao criar categoria no Supabase:', error)
+      }
     }
 
     setCustomCategories((previous) => {
@@ -4854,7 +5463,7 @@ export default function App() {
     })
   }
 
-  const handleCreateTheme = (input: Omit<CustomTheme, 'id' | 'createdAt'>) => {
+  const handleCreateTheme = async (input: Omit<CustomTheme, 'id' | 'createdAt'>) => {
     const name = input.name.trim()
     if (
       !name ||
@@ -4865,6 +5474,33 @@ export default function App() {
       !isHexColor(input.navTo)
     ) {
       return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db.from('user_themes').insert({
+        user_id: context.appUserId,
+        name,
+        primary_color: input.primaryColor,
+        accent_color: input.accentColor,
+        nav_from: input.navFrom,
+        nav_via: input.navVia,
+        nav_to: input.navTo,
+        is_active: false,
+      })
+
+      if (!error) {
+        const { data: themeRows, error: fetchError } = await context.db
+          .from('user_themes')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (!fetchError && themeRows) {
+          setCustomThemes((themeRows as DbUserThemeRow[]).map(mapDbUserThemeRow))
+          return
+        }
+      } else {
+        console.error('Falha ao criar tema no Supabase:', error)
+      }
     }
 
     setCustomThemes((previous) => {
@@ -4888,17 +5524,65 @@ export default function App() {
     })
   }
 
-  const handleDeleteTheme = (themeId: string) => {
-    if (themeId === defaultThemePreset.id) {
+  const handleApplyTheme = async (themeId: string) => {
+    const nextThemeId = themePresets.some((theme) => theme.id === themeId)
+      ? themeId
+      : defaultThemePreset.id
+
+    setActiveThemeId(nextThemeId)
+
+    const context = await getDbContext()
+    if (!context) {
       return
     }
-    setCustomThemes((previous) => previous.filter((theme) => theme.id !== themeId))
-    if (activeThemeId === themeId) {
-      setActiveThemeId(defaultThemePreset.id)
+
+    const { error: clearError } = await context.db
+      .from('user_themes')
+      .update({ is_active: false })
+      .eq('user_id', context.appUserId)
+      .eq('is_active', true)
+
+    if (clearError) {
+      console.error('Falha ao limpar tema ativo no Supabase:', clearError)
+      return
+    }
+
+    if (nextThemeId === defaultThemePreset.id) {
+      return
+    }
+
+    const { error: activateError } = await context.db
+      .from('user_themes')
+      .update({ is_active: true })
+      .eq('id', nextThemeId)
+    if (activateError) {
+      console.error('Falha ao ativar tema no Supabase:', activateError)
     }
   }
 
-  const handleCreateGoal = (input: {
+  const handleDeleteTheme = async (themeId: string) => {
+    if (themeId === defaultThemePreset.id) {
+      return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('user_themes')
+        .delete()
+        .eq('id', themeId)
+      if (error) {
+        console.error('Falha ao remover tema no Supabase:', error)
+      }
+    }
+
+    setCustomThemes((previous) => previous.filter((theme) => theme.id !== themeId))
+    if (activeThemeId === themeId) {
+      void handleApplyTheme(defaultThemePreset.id)
+    }
+  }
+
+  const handleCreateGoal = async (input: {
     name: string
     targetAmount: number
     targetDate: string
@@ -4906,6 +5590,30 @@ export default function App() {
     const name = input.name.trim()
     if (!name || input.targetAmount <= 0 || !input.targetDate) {
       return
+    }
+
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db.from('financial_goals').insert({
+        user_id: context.appUserId,
+        name,
+        target_amount: input.targetAmount,
+        current_amount: 0,
+        target_date: input.targetDate,
+      })
+
+      if (!error) {
+        const { data: dbGoals, error: fetchError } = await context.db
+          .from('financial_goals')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (!fetchError && dbGoals) {
+          setGoals((dbGoals as DbGoalRow[]).map(mapDbGoalRow))
+          return
+        }
+      } else {
+        console.error('Falha ao criar meta no Supabase:', error)
+      }
     }
 
     setGoals((previous) => [
@@ -4921,19 +5629,84 @@ export default function App() {
     ])
   }
 
-  const handleUpdateGoal = (goal: FinancialGoal) => {
+  const handleUpdateGoal = async (goal: FinancialGoal) => {
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('financial_goals')
+        .update({
+          name: goal.name,
+          target_amount: goal.targetAmount,
+          current_amount: goal.currentAmount,
+          target_date: goal.targetDate,
+        })
+        .eq('id', goal.id)
+
+      if (!error) {
+        const { data: dbGoals, error: fetchError } = await context.db
+          .from('financial_goals')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (!fetchError && dbGoals) {
+          setGoals((dbGoals as DbGoalRow[]).map(mapDbGoalRow))
+          return
+        }
+      } else {
+        console.error('Falha ao atualizar meta no Supabase:', error)
+      }
+    }
+
     setGoals((previous) =>
       previous.map((item) => (item.id === goal.id ? goal : item)),
     )
   }
 
-  const handleDeleteGoal = (goalId: string) => {
+  const handleDeleteGoal = async (goalId: string) => {
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('financial_goals')
+        .delete()
+        .eq('id', goalId)
+      if (!error) {
+        setGoals((previous) => previous.filter((goal) => goal.id !== goalId))
+        return
+      }
+      console.error('Falha ao remover meta no Supabase:', error)
+    }
+
     setGoals((previous) => previous.filter((goal) => goal.id !== goalId))
   }
 
-  const handleAddGoalAmount = (goalId: string, amount: number) => {
+  const handleAddGoalAmount = async (goalId: string, amount: number) => {
     if (!Number.isFinite(amount) || amount <= 0) {
       return
+    }
+
+    const nextGoal = goals.find((goal) => goal.id === goalId)
+    if (!nextGoal) {
+      return
+    }
+
+    const updatedCurrentAmount = nextGoal.currentAmount + amount
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db
+        .from('financial_goals')
+        .update({ current_amount: updatedCurrentAmount })
+        .eq('id', goalId)
+
+      if (!error) {
+        setGoals((previous) =>
+          previous.map((goal) =>
+            goal.id === goalId
+              ? { ...goal, currentAmount: updatedCurrentAmount }
+              : goal,
+          ),
+        )
+        return
+      }
+      console.error('Falha ao adicionar valor na meta no Supabase:', error)
     }
 
     setGoals((previous) =>
@@ -4979,8 +5752,9 @@ export default function App() {
                 themePresets={themePresets}
                 activeThemeId={activeThemeId}
                 onCreateTheme={handleCreateTheme}
-                onApplyTheme={setActiveThemeId}
+                onApplyTheme={handleApplyTheme}
                 onDeleteTheme={handleDeleteTheme}
+                getDbContext={getDbContext}
               />
             </ProtectedRoute>
           }
