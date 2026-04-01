@@ -4049,7 +4049,7 @@ function DashboardPage({
                         downloadReportPdf('annual', `relatorio-anual-${annualReportYear}.pdf`)
                       }
                       disabled={isGeneratingPdf !== null}
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-600/55 bg-emerald-500/22 px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-500/30 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-600/55 bg-emerald-500/22 px-4 py-2 text-sm font-semibold text-black transition hover:bg-emerald-500/30 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Download className="h-4 w-4" />
                       {isGeneratingPdf === 'annual' ? 'Gerando PDF...' : 'Baixar PDF anual'}
