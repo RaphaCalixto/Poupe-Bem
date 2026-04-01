@@ -82,6 +82,17 @@ interface BeforeInstallPromptEvent extends Event {
 type TransactionType = 'receita' | 'despesa'
 type ThemeMode = 'light' | 'dark'
 type RecurringFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'anual'
+type PaymentMethod = 'pix' | 'cartao'
+type CardProvider =
+  | 'itau'
+  | 'banco_do_brasil'
+  | 'pan'
+  | 'nubank'
+  | 'mercado_pago'
+  | 'c6'
+  | 'santander'
+  | 'bradesco'
+  | 'picpay'
 type InvestmentType =
   | 'acoes'
   | 'criptomoedas'
@@ -137,6 +148,8 @@ interface RecurringTransaction {
   frequency: RecurringFrequency
   nextDueDate: string
   isActive: boolean
+  paymentMethod: PaymentMethod | null
+  cardProvider: CardProvider | null
   description: string
   createdAt: string
 }
@@ -165,6 +178,8 @@ interface Transaction {
   installmentNumber: number
   installmentCount: number
   firstInstallmentDate: string
+  paymentMethod: PaymentMethod | null
+  cardProvider: CardProvider | null
   createdAt: string
 }
 
@@ -182,6 +197,8 @@ interface DashboardEntry {
   description: string
   installmentNumber: number
   installmentCount: number
+  paymentMethod: PaymentMethod | null
+  cardProvider: CardProvider | null
   recurringFrequency?: RecurringFrequency
 }
 
@@ -193,6 +210,8 @@ interface TransactionFormState {
   description: string
   isInstallment: boolean
   installmentCount: number
+  paymentMethod: '' | PaymentMethod
+  cardProvider: '' | CardProvider
 }
 
 interface DbTransactionRow {
@@ -207,6 +226,8 @@ interface DbTransactionRow {
   first_installment_date: string
   installment_number: number
   installment_count: number
+  payment_method?: PaymentMethod | null
+  card_provider?: CardProvider | null
   created_at: string
 }
 
@@ -228,6 +249,8 @@ interface DbRecurringRow {
   frequency: RecurringFrequency
   next_due_date: string
   is_active: boolean
+  payment_method?: PaymentMethod | null
+  card_provider?: CardProvider | null
   description: string | null
   created_at: string
 }
@@ -398,6 +421,42 @@ const summaryMonthOptions = [
 ] as const
 const reportPalette = ['#ff7b82', '#62d6d6', '#67a6ff', '#9bd7b5', '#f6b870', '#bfa2ff']
 const annualPalette = ['#22c55e', '#ef4444', '#3b82f6']
+const cardProviderOptions: Array<{
+  value: CardProvider
+  label: string
+  emoji: string
+  colorClass: string
+}> = [
+  { value: 'itau', label: 'Itaú', emoji: '🟧', colorClass: 'text-orange-500' },
+  {
+    value: 'banco_do_brasil',
+    label: 'Banco do Brasil',
+    emoji: '🟨',
+    colorClass: 'text-yellow-500',
+  },
+  { value: 'pan', label: 'Pan', emoji: '🟦', colorClass: 'text-sky-500' },
+  { value: 'nubank', label: 'Nubank', emoji: '🟪', colorClass: 'text-purple-500' },
+  {
+    value: 'mercado_pago',
+    label: 'Mercado Pago',
+    emoji: '🔵',
+    colorClass: 'text-blue-500',
+  },
+  { value: 'c6', label: 'C6', emoji: '⚫', colorClass: 'text-zinc-500 dark:text-zinc-300' },
+  {
+    value: 'santander',
+    label: 'Santander',
+    emoji: '🔴',
+    colorClass: 'text-rose-500',
+  },
+  {
+    value: 'bradesco',
+    label: 'Bradesco',
+    emoji: '🟥',
+    colorClass: 'text-red-500',
+  },
+  { value: 'picpay', label: 'PicPay', emoji: '🟩', colorClass: 'text-emerald-500' },
+]
 const categoryEmojiSuggestions = [
   '💡',
   '🏖️',
@@ -443,6 +502,58 @@ function getCategoryDisplaySymbol(category?: CategoryDef) {
 function getCategoryOptionLabel(category: CategoryDef) {
   const prefix = category.emoji?.trim() || '📌'
   return `${prefix} ${category.label}`
+}
+
+function getCardProviderOption(cardProvider: CardProvider | null | undefined) {
+  if (!cardProvider) {
+    return null
+  }
+  return (
+    cardProviderOptions.find((option) => option.value === cardProvider) ?? null
+  )
+}
+
+function getPaymentMethodLabel(
+  paymentMethod: PaymentMethod | null,
+  cardProvider: CardProvider | null,
+) {
+  if (paymentMethod === 'pix') {
+    return 'Pix'
+  }
+
+  if (paymentMethod === 'cartao') {
+    const provider = getCardProviderOption(cardProvider)
+    if (provider) {
+      return `${provider.emoji} ${provider.label}`
+    }
+    return 'Cartão'
+  }
+
+  return ''
+}
+
+function parsePaymentMethod(value: unknown): PaymentMethod | null {
+  if (value === 'pix' || value === 'cartao') {
+    return value
+  }
+  return null
+}
+
+function parseCardProvider(value: unknown): CardProvider | null {
+  if (
+    value === 'itau' ||
+    value === 'banco_do_brasil' ||
+    value === 'pan' ||
+    value === 'nubank' ||
+    value === 'mercado_pago' ||
+    value === 'c6' ||
+    value === 'santander' ||
+    value === 'bradesco' ||
+    value === 'picpay'
+  ) {
+    return value
+  }
+  return null
 }
 
 function getMergedCategories(customCategories: CategoryDef[]) {
@@ -601,6 +712,8 @@ function projectRecurringEntries(
             description: item.description.trim(),
             installmentNumber: 1,
             installmentCount: 1,
+            paymentMethod: item.paymentMethod,
+            cardProvider: item.cardProvider,
             recurringFrequency: item.frequency,
           })
         }
@@ -643,10 +756,16 @@ function toDbTransactionRows(transactions: Transaction[], userId: string) {
     first_installment_date: item.firstInstallmentDate,
     installment_number: item.installmentNumber,
     installment_count: item.installmentCount,
+    payment_method: item.paymentMethod,
+    card_provider: item.cardProvider,
   }))
 }
 
 function mapDbTransactionRow(row: DbTransactionRow): Transaction {
+  const paymentMethod = parsePaymentMethod(row.payment_method)
+  const cardProvider =
+    paymentMethod === 'cartao' ? parseCardProvider(row.card_provider) : null
+
   return {
     id: row.id,
     groupId: row.group_id,
@@ -659,6 +778,8 @@ function mapDbTransactionRow(row: DbTransactionRow): Transaction {
     installmentNumber: row.installment_number,
     installmentCount: row.installment_count,
     firstInstallmentDate: row.first_installment_date,
+    paymentMethod,
+    cardProvider,
     createdAt: row.created_at,
   }
 }
@@ -675,6 +796,10 @@ function mapDbGoalRow(row: DbGoalRow): FinancialGoal {
 }
 
 function mapDbRecurringRow(row: DbRecurringRow): RecurringTransaction {
+  const paymentMethod = parsePaymentMethod(row.payment_method)
+  const cardProvider =
+    paymentMethod === 'cartao' ? parseCardProvider(row.card_provider) : null
+
   return {
     id: row.id,
     name: row.name,
@@ -684,6 +809,8 @@ function mapDbRecurringRow(row: DbRecurringRow): RecurringTransaction {
     frequency: row.frequency,
     nextDueDate: row.next_due_date,
     isActive: row.is_active,
+    paymentMethod,
+    cardProvider,
     description: row.description ?? '',
     createdAt: row.created_at,
   }
@@ -806,6 +933,11 @@ function readStoredTransactions() {
           return null
         }
 
+        const paymentMethod = parsePaymentMethod(item.paymentMethod)
+        const cardProvider = parseCardProvider(item.cardProvider)
+        const normalizedCardProvider =
+          paymentMethod === 'cartao' ? cardProvider : null
+
         return {
           id: String(item.id ?? generateId()),
           groupId: String(item.groupId ?? generateId()),
@@ -818,6 +950,8 @@ function readStoredTransactions() {
           installmentNumber: Number(item.installmentNumber ?? 1),
           installmentCount: Number(item.installmentCount ?? 1),
           firstInstallmentDate: String(item.firstInstallmentDate ?? String(item.date ?? getTodayDate())),
+          paymentMethod,
+          cardProvider: normalizedCardProvider,
           createdAt: String(item.createdAt ?? new Date().toISOString()),
         } satisfies Transaction
       })
@@ -1067,6 +1201,10 @@ function readStoredRecurringTransactions() {
             : 'mensal'
         const nextDueDate = String(item.nextDueDate ?? '').slice(0, 10)
         const isActive = item.isActive !== false
+        const paymentMethod = parsePaymentMethod(item.paymentMethod)
+        const cardProvider = parseCardProvider(item.cardProvider)
+        const normalizedCardProvider =
+          paymentMethod === 'cartao' ? cardProvider : null
 
         if (!id || !name || !type || !categoryKey || !nextDueDate || amount <= 0) {
           return null
@@ -1081,6 +1219,8 @@ function readStoredRecurringTransactions() {
           frequency,
           nextDueDate,
           isActive,
+          paymentMethod,
+          cardProvider: normalizedCardProvider,
           description: String(item.description ?? ''),
           createdAt: String(item.createdAt ?? new Date().toISOString()),
         } satisfies RecurringTransaction
@@ -1353,8 +1493,12 @@ function DashboardPage({
     : 'resumo'
   const [summarySearch, setSummarySearch] = useState('')
   const [summaryCategoryFilter, setSummaryCategoryFilter] = useState<string>('all')
-  const [summaryMonthFilter, setSummaryMonthFilter] = useState<string>('all')
-  const [summaryYearFilter, setSummaryYearFilter] = useState<string>('all')
+  const [summaryMonthFilter, setSummaryMonthFilter] = useState<string>(
+    getTodayDate().slice(5, 7),
+  )
+  const [summaryYearFilter, setSummaryYearFilter] = useState<string>(
+    getTodayDate().slice(0, 4),
+  )
   const [summaryTypeFilter, setSummaryTypeFilter] = useState<SummaryTypeFilter>('todos')
   const [newCategoryType, setNewCategoryType] = useState<TransactionType>('despesa')
   const [newCategoryEmoji, setNewCategoryEmoji] = useState('')
@@ -1397,6 +1541,12 @@ function DashboardPage({
   const [recurringFormFrequency, setRecurringFormFrequency] =
     useState<RecurringFrequency>('mensal')
   const [recurringFormNextDate, setRecurringFormNextDate] = useState(getTodayDate())
+  const [recurringFormPaymentMethod, setRecurringFormPaymentMethod] = useState<
+    '' | PaymentMethod
+  >('')
+  const [recurringFormCardProvider, setRecurringFormCardProvider] = useState<
+    '' | CardProvider
+  >('')
   const [recurringFormDescription, setRecurringFormDescription] = useState('')
   const [editingRecurringId, setEditingRecurringId] = useState<string | null>(null)
   const [investmentPositions, setInvestmentPositions] = useState<InvestmentPosition[]>(
@@ -1469,6 +1619,8 @@ function DashboardPage({
         description: item.description,
         installmentNumber: item.installmentNumber,
         installmentCount: item.installmentCount,
+        paymentMethod: item.paymentMethod,
+        cardProvider: item.cardProvider,
       })),
       ...projectedRecurringEntries,
     ],
@@ -1498,6 +1650,11 @@ function DashboardPage({
       setChartMonthCursor(chartMonthKeys[chartMonthKeys.length - 1])
     }
   }, [chartMonthKeys, chartMonthCursor])
+
+  useEffect(() => {
+    setSummaryMonthFilter(selectedMonthKey.slice(5, 7))
+    setSummaryYearFilter(selectedMonthKey.slice(0, 4))
+  }, [selectedMonthKey])
 
   useEffect(() => {
     window.localStorage.setItem(monthlyPlansStorageKey, JSON.stringify(monthlyPlans))
@@ -1646,7 +1803,7 @@ function DashboardPage({
         summaryCategoryFilter === 'all' || item.categoryKey === summaryCategoryFilter
       const searchMatch =
         normalizedSearch.length === 0 ||
-        `${item.categoryLabel} ${item.description} ${item.value} ${item.date} ${item.source}`
+        `${item.categoryLabel} ${item.description} ${item.value} ${item.date} ${item.source} ${getPaymentMethodLabel(item.paymentMethod, item.cardProvider)}`
           .toLowerCase()
           .includes(normalizedSearch)
       return monthMatch && yearMatch && typeMatch && categoryMatch && searchMatch
@@ -2087,6 +2244,8 @@ function DashboardPage({
     setRecurringFormCategoryKey(getCategoriesByType('despesa', categories)[0]?.key ?? '')
     setRecurringFormFrequency('mensal')
     setRecurringFormNextDate(getTodayDate())
+    setRecurringFormPaymentMethod('')
+    setRecurringFormCardProvider('')
     setRecurringFormDescription('')
     setEditingRecurringId(null)
   }
@@ -2106,6 +2265,14 @@ function DashboardPage({
       return
     }
 
+    const paymentMethod = parsePaymentMethod(recurringFormPaymentMethod)
+    const cardProvider =
+      paymentMethod === 'cartao' ? parseCardProvider(recurringFormCardProvider) : null
+
+    if (paymentMethod === 'cartao' && !cardProvider) {
+      return
+    }
+
     const context = await getDbContext()
     if (context) {
       if (editingRecurringId) {
@@ -2118,6 +2285,8 @@ function DashboardPage({
             category_key: recurringFormCategoryKey,
             frequency: recurringFormFrequency,
             next_due_date: recurringFormNextDate,
+            payment_method: paymentMethod,
+            card_provider: cardProvider,
             description: recurringFormDescription.trim() || null,
           })
           .eq('id', editingRecurringId)
@@ -2147,6 +2316,8 @@ function DashboardPage({
           category_key: recurringFormCategoryKey,
           frequency: recurringFormFrequency,
           next_due_date: recurringFormNextDate,
+          payment_method: paymentMethod,
+          card_provider: cardProvider,
           is_active: true,
           description: recurringFormDescription.trim() || null,
         })
@@ -2182,6 +2353,8 @@ function DashboardPage({
                 categoryKey: recurringFormCategoryKey,
                 frequency: recurringFormFrequency,
                 nextDueDate: recurringFormNextDate,
+                paymentMethod,
+                cardProvider,
                 description: recurringFormDescription.trim(),
               }
             : item,
@@ -2198,6 +2371,8 @@ function DashboardPage({
           frequency: recurringFormFrequency,
           nextDueDate: recurringFormNextDate,
           isActive: true,
+          paymentMethod,
+          cardProvider,
           description: recurringFormDescription.trim(),
           createdAt: new Date().toISOString(),
         },
@@ -2217,6 +2392,8 @@ function DashboardPage({
     setRecurringFormCategoryKey(item.categoryKey)
     setRecurringFormFrequency(item.frequency)
     setRecurringFormNextDate(item.nextDueDate)
+    setRecurringFormPaymentMethod(item.paymentMethod ?? '')
+    setRecurringFormCardProvider(item.cardProvider ?? '')
     setRecurringFormDescription(item.description)
     setIsRecurringFormOpen(true)
   }
@@ -2829,6 +3006,11 @@ function DashboardPage({
                                   ? ` - ${item.installmentNumber}/${item.installmentCount}x`
                                   : ''}
                               </p>
+                              {item.paymentMethod ? (
+                                <p className="mt-1 text-xs text-[var(--m3-on-surface-variant)]">
+                                  Pagamento: {getPaymentMethodLabel(item.paymentMethod, item.cardProvider)}
+                                </p>
+                              ) : null}
                             </div>
                             <div className="flex flex-col items-end gap-2">
                               <p
@@ -3768,6 +3950,42 @@ function DashboardPage({
                         className="h-10 rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-3 text-sm"
                         required
                       />
+                      <select
+                        value={recurringFormPaymentMethod}
+                        onChange={(event) => {
+                          const value = event.target.value as '' | PaymentMethod
+                          setRecurringFormPaymentMethod(value)
+                          if (value !== 'cartao') {
+                            setRecurringFormCardProvider('')
+                          }
+                        }}
+                        className="h-10 rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-3 text-sm"
+                      >
+                        <option value="">Forma de pagamento (opcional)</option>
+                        <option value="pix">Pix</option>
+                        <option value="cartao">Cartao</option>
+                      </select>
+                      {recurringFormPaymentMethod === 'cartao' ? (
+                        <select
+                          value={recurringFormCardProvider}
+                          onChange={(event) =>
+                            setRecurringFormCardProvider(
+                              event.target.value as '' | CardProvider,
+                            )
+                          }
+                          className="h-10 rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-3 text-sm"
+                          required
+                        >
+                          <option value="">Selecione o cartão</option>
+                          {cardProviderOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.emoji} {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div />
+                      )}
                       <input
                         type="text"
                         value={recurringFormDescription}
@@ -3819,6 +4037,11 @@ function DashboardPage({
                                   {category?.label ?? 'Categoria'} ·{' '}
                                   {formatRecurringFrequencyLabel(item.frequency)}
                                 </p>
+                                {item.paymentMethod ? (
+                                  <p className="text-xs text-[var(--m3-on-surface-variant)]">
+                                    Pagamento: {getPaymentMethodLabel(item.paymentMethod, item.cardProvider)}
+                                  </p>
+                                ) : null}
                               </div>
                               <div className="flex items-center gap-2">
                                 <button
@@ -4721,6 +4944,8 @@ function AddTransactionModal({
     description: '',
     isInstallment: false,
     installmentCount: 1,
+    paymentMethod: '',
+    cardProvider: '',
   })
 
   const activeCategories = getCategoriesByType(formState.type, categories)
@@ -4877,6 +5102,52 @@ function AddTransactionModal({
             ) : null}
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span>Forma de pagamento usada (opcional)</span>
+              <select
+                value={formState.paymentMethod}
+                onChange={(event) =>
+                  setFormState((previous) => ({
+                    ...previous,
+                    paymentMethod: event.target.value as '' | PaymentMethod,
+                    cardProvider:
+                      event.target.value === 'cartao' ? previous.cardProvider : '',
+                  }))
+                }
+                className="h-11 w-full rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4"
+              >
+                <option value="">Nao informar</option>
+                <option value="pix">Pix</option>
+                <option value="cartao">Cartao</option>
+              </select>
+            </label>
+
+            {formState.paymentMethod === 'cartao' ? (
+              <label className="space-y-2 text-sm">
+                <span>Cartão usado</span>
+                <select
+                  value={formState.cardProvider}
+                  onChange={(event) =>
+                    setFormState((previous) => ({
+                      ...previous,
+                      cardProvider: event.target.value as '' | CardProvider,
+                    }))
+                  }
+                  className="h-11 w-full rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4"
+                  required
+                >
+                  <option value="">Selecione um cartão</option>
+                  {cardProviderOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.emoji} {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+
           <div className="space-y-2">
             <p className="text-sm">Categoria</p>
             <div className="lg:hidden">
@@ -4976,6 +5247,8 @@ function EditTransactionModal({
     value: String(transaction.value),
     categoryKey: transaction.categoryKey,
     description: transaction.description,
+    paymentMethod: transaction.paymentMethod ?? '',
+    cardProvider: transaction.cardProvider ?? '',
   })
 
   const activeCategories = getCategoriesByType(formState.type, categories)
@@ -5089,6 +5362,52 @@ function EditTransactionModal({
               ))}
             </select>
           </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span>Forma de pagamento usada (opcional)</span>
+              <select
+                value={formState.paymentMethod}
+                onChange={(event) =>
+                  setFormState((previous) => ({
+                    ...previous,
+                    paymentMethod: event.target.value as '' | PaymentMethod,
+                    cardProvider:
+                      event.target.value === 'cartao' ? previous.cardProvider : '',
+                  }))
+                }
+                className="h-11 w-full rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4"
+              >
+                <option value="">Nao informar</option>
+                <option value="pix">Pix</option>
+                <option value="cartao">Cartao</option>
+              </select>
+            </label>
+
+            {formState.paymentMethod === 'cartao' ? (
+              <label className="space-y-2 text-sm">
+                <span>Cartão usado</span>
+                <select
+                  value={formState.cardProvider}
+                  onChange={(event) =>
+                    setFormState((previous) => ({
+                      ...previous,
+                      cardProvider: event.target.value as '' | CardProvider,
+                    }))
+                  }
+                  className="h-11 w-full rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4"
+                  required
+                >
+                  <option value="">Selecione um cartão</option>
+                  {cardProviderOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.emoji} {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
 
           <label className="space-y-2 text-sm">
             <span>Descricao (opcional)</span>
@@ -5320,6 +5639,14 @@ export default function App() {
       return
     }
 
+    const paymentMethod = parsePaymentMethod(form.paymentMethod)
+    const cardProvider =
+      paymentMethod === 'cartao' ? parseCardProvider(form.cardProvider) : null
+
+    if (paymentMethod === 'cartao' && !cardProvider) {
+      return
+    }
+
     const installmentCount = form.isInstallment
       ? Math.max(2, form.installmentCount)
       : 1
@@ -5346,6 +5673,8 @@ export default function App() {
         installmentNumber: index + 1,
         installmentCount,
         firstInstallmentDate: form.date,
+        paymentMethod,
+        cardProvider,
         createdAt: new Date().toISOString(),
       } satisfies Transaction
     })
@@ -5393,6 +5722,14 @@ export default function App() {
       return
     }
 
+    const paymentMethod = parsePaymentMethod(form.paymentMethod)
+    const cardProvider =
+      paymentMethod === 'cartao' ? parseCardProvider(form.cardProvider) : null
+
+    if (paymentMethod === 'cartao' && !cardProvider) {
+      return
+    }
+
     const context = await getDbContext()
     if (context) {
       const { error } = await context.db
@@ -5404,6 +5741,8 @@ export default function App() {
           category_key: category.key,
           category_label: category.label,
           description: form.description.trim() || null,
+          payment_method: paymentMethod,
+          card_provider: cardProvider,
         })
         .eq('id', id)
 
@@ -5434,6 +5773,8 @@ export default function App() {
               categoryKey: category.key,
               categoryLabel: category.label,
               description: form.description.trim(),
+              paymentMethod,
+              cardProvider,
             }
           : item,
       ),
