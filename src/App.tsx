@@ -168,6 +168,23 @@ interface Transaction {
   createdAt: string
 }
 
+type SummaryTypeFilter = 'todos' | TransactionType | 'recorrentes'
+
+interface DashboardEntry {
+  id: string
+  source: 'transacao' | 'recorrente'
+  sourceId: string
+  type: TransactionType
+  date: string
+  value: number
+  categoryKey: string
+  categoryLabel: string
+  description: string
+  installmentNumber: number
+  installmentCount: number
+  recurringFrequency?: RecurringFrequency
+}
+
 interface TransactionFormState {
   type: TransactionType
   date: string
@@ -260,6 +277,7 @@ interface DashboardPageProps {
   goals: FinancialGoal[]
   onOpenAdd: () => void
   onEditTransaction: (transaction: Transaction) => void
+  onDeleteTransaction: (transactionId: string) => void | Promise<void>
   onCreateCategory: (input: {
     type: TransactionType
     emoji: string
@@ -525,6 +543,76 @@ function addMonths(date: Date, amount: number) {
   return result
 }
 
+function addMonthsToMonthKey(monthKey: string, amount: number) {
+  const date = new Date(`${monthKey}-01T12:00:00`)
+  date.setMonth(date.getMonth() + amount)
+  return date.toISOString().slice(0, 7)
+}
+
+function getNextRecurringDate(date: Date, frequency: RecurringFrequency) {
+  const next = new Date(date)
+  switch (frequency) {
+    case 'semanal':
+      next.setDate(next.getDate() + 7)
+      return next
+    case 'quinzenal':
+      next.setDate(next.getDate() + 14)
+      return next
+    case 'anual':
+      return addMonths(next, 12)
+    case 'mensal':
+    default:
+      return addMonths(next, 1)
+  }
+}
+
+function projectRecurringEntries(
+  recurringTransactions: RecurringTransaction[],
+  categories: CategoryDef[],
+  startMonthKey: string,
+  endMonthKey: string,
+): DashboardEntry[] {
+  const startBoundary = new Date(`${startMonthKey}-01T00:00:00`)
+  const endBoundary = new Date(`${endMonthKey}-01T23:59:59`)
+  endBoundary.setMonth(endBoundary.getMonth() + 1, 0)
+
+  const projected: DashboardEntry[] = []
+
+  recurringTransactions
+    .filter((item) => item.isActive)
+    .forEach((item) => {
+      const category = getCategoryByKey(item.categoryKey, categories)
+      const categoryLabel = category?.label ?? 'Sem categoria'
+      let cursor = new Date(`${item.nextDueDate}T12:00:00`)
+      let guard = 0
+
+      while (cursor <= endBoundary && guard < 5000) {
+        if (cursor >= startBoundary) {
+          const isoDate = toIsoDate(cursor)
+          projected.push({
+            id: `rec-${item.id}-${isoDate}-${guard}`,
+            source: 'recorrente',
+            sourceId: item.id,
+            type: item.type,
+            date: isoDate,
+            value: item.amount,
+            categoryKey: item.categoryKey,
+            categoryLabel,
+            description: item.description.trim(),
+            installmentNumber: 1,
+            installmentCount: 1,
+            recurringFrequency: item.frequency,
+          })
+        }
+
+        cursor = getNextRecurringDate(cursor, item.frequency)
+        guard += 1
+      }
+    })
+
+  return projected
+}
+
 function toIsoDate(date: Date) {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
     .toISOString()
@@ -638,14 +726,14 @@ function mapDbUserThemeRow(row: DbUserThemeRow): CustomTheme {
   }
 }
 
-function buildChartData(transactions: Transaction[]) {
+function buildChartData(entries: Array<{ date: string; type: TransactionType; value: number }>) {
   const monthMap = new Map<
     string,
     { monthKey: string; mes: string; receitas: number; despesas: number }
   >()
 
-  transactions.forEach((transaction) => {
-    const monthKey = transaction.date.slice(0, 7)
+  entries.forEach((entry) => {
+    const monthKey = entry.date.slice(0, 7)
     const existing = monthMap.get(monthKey) ?? {
       monthKey,
       mes: new Intl.DateTimeFormat('pt-BR', { month: 'short' })
@@ -655,10 +743,10 @@ function buildChartData(transactions: Transaction[]) {
       despesas: 0,
     }
 
-    if (transaction.type === 'receita') {
-      existing.receitas += transaction.value
+    if (entry.type === 'receita') {
+      existing.receitas += entry.value
     } else {
-      existing.despesas += transaction.value
+      existing.despesas += entry.value
     }
 
     monthMap.set(monthKey, existing)
@@ -1241,6 +1329,7 @@ function DashboardPage({
   goals,
   onOpenAdd,
   onEditTransaction,
+  onDeleteTransaction,
   onCreateCategory,
   onCreateGoal,
   onUpdateGoal,
@@ -1266,9 +1355,7 @@ function DashboardPage({
   const [summaryCategoryFilter, setSummaryCategoryFilter] = useState<string>('all')
   const [summaryMonthFilter, setSummaryMonthFilter] = useState<string>('all')
   const [summaryYearFilter, setSummaryYearFilter] = useState<string>('all')
-  const [summaryTypeFilter, setSummaryTypeFilter] = useState<
-    'todos' | TransactionType
-  >('todos')
+  const [summaryTypeFilter, setSummaryTypeFilter] = useState<SummaryTypeFilter>('todos')
   const [newCategoryType, setNewCategoryType] = useState<TransactionType>('despesa')
   const [newCategoryEmoji, setNewCategoryEmoji] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -1338,7 +1425,57 @@ function DashboardPage({
   const currentMonthKey = getTodayDate().slice(0, 7)
   const [chartMonthCursor, setChartMonthCursor] = useState(currentMonthKey)
 
-  const chartData = useMemo(() => buildChartData(transactions), [transactions])
+  const dataRangeStartMonthKey = useMemo(() => {
+    const monthKeys = [
+      currentMonthKey,
+      ...transactions.map((item) => item.date.slice(0, 7)),
+      ...recurringTransactions
+        .filter((item) => item.isActive)
+        .map((item) => item.nextDueDate.slice(0, 7)),
+    ]
+    return [...monthKeys].sort((a, b) => a.localeCompare(b))[0] ?? currentMonthKey
+  }, [transactions, recurringTransactions, currentMonthKey])
+
+  const dataRangeEndMonthKey = useMemo(() => {
+    const monthKeys = [
+      addMonthsToMonthKey(currentMonthKey, 60),
+      ...transactions.map((item) => item.date.slice(0, 7)),
+    ]
+    return [...monthKeys].sort((a, b) => b.localeCompare(a))[0] ?? currentMonthKey
+  }, [transactions, currentMonthKey])
+
+  const projectedRecurringEntries = useMemo(
+    () =>
+      projectRecurringEntries(
+        recurringTransactions,
+        categories,
+        dataRangeStartMonthKey,
+        dataRangeEndMonthKey,
+      ),
+    [recurringTransactions, categories, dataRangeStartMonthKey, dataRangeEndMonthKey],
+  )
+
+  const dashboardEntries = useMemo<DashboardEntry[]>(
+    () => [
+      ...transactions.map((item) => ({
+        id: item.id,
+        source: 'transacao' as const,
+        sourceId: item.id,
+        type: item.type,
+        date: item.date,
+        value: item.value,
+        categoryKey: item.categoryKey,
+        categoryLabel: item.categoryLabel,
+        description: item.description,
+        installmentNumber: item.installmentNumber,
+        installmentCount: item.installmentCount,
+      })),
+      ...projectedRecurringEntries,
+    ],
+    [transactions, projectedRecurringEntries],
+  )
+
+  const chartData = useMemo(() => buildChartData(dashboardEntries), [dashboardEntries])
   const chartMonthKeys = useMemo(
     () => chartData.map((item) => item.monthKey),
     [chartData],
@@ -1423,29 +1560,31 @@ function DashboardPage({
 
   const monthIncome = useMemo(
     () =>
-      transactions
+      dashboardEntries
         .filter(
           (item) =>
             item.type === 'receita' && item.date.slice(0, 7) === selectedMonthKey,
         )
         .reduce((acc, item) => acc + item.value, 0),
-    [transactions, selectedMonthKey],
+    [dashboardEntries, selectedMonthKey],
   )
 
   const monthExpense = useMemo(
     () =>
-      transactions
+      dashboardEntries
         .filter(
           (item) =>
             item.type === 'despesa' && item.date.slice(0, 7) === selectedMonthKey,
         )
         .reduce((acc, item) => acc + item.value, 0),
-    [transactions, selectedMonthKey],
+    [dashboardEntries, selectedMonthKey],
   )
 
   const monthTransactionCount = useMemo(
-    () => transactions.filter((item) => item.date.slice(0, 7) === selectedMonthKey).length,
-    [transactions, selectedMonthKey],
+    () =>
+      dashboardEntries.filter((item) => item.date.slice(0, 7) === selectedMonthKey)
+        .length,
+    [dashboardEntries, selectedMonthKey],
   )
 
   const balance = monthIncome - monthExpense
@@ -1484,26 +1623,30 @@ function DashboardPage({
 
   const summaryYearOptions = useMemo(
     () =>
-      Array.from(new Set(transactions.map((item) => item.date.slice(0, 4)))).sort(
+      Array.from(new Set(dashboardEntries.map((item) => item.date.slice(0, 4)))).sort(
         (a, b) => b.localeCompare(a),
       ),
-    [transactions],
+    [dashboardEntries],
   )
 
   const summaryItems = useMemo(() => {
     const normalizedSearch = summarySearch.trim().toLowerCase()
-    const filtered = transactions.filter((item) => {
+    const filtered = dashboardEntries.filter((item) => {
       const monthMatch =
         summaryMonthFilter === 'all' || item.date.slice(5, 7) === summaryMonthFilter
       const yearMatch =
         summaryYearFilter === 'all' || item.date.slice(0, 4) === summaryYearFilter
       const typeMatch =
-        summaryTypeFilter === 'todos' || item.type === summaryTypeFilter
+        summaryTypeFilter === 'todos'
+          ? true
+          : summaryTypeFilter === 'recorrentes'
+            ? item.source === 'recorrente'
+            : item.type === summaryTypeFilter
       const categoryMatch =
         summaryCategoryFilter === 'all' || item.categoryKey === summaryCategoryFilter
       const searchMatch =
         normalizedSearch.length === 0 ||
-        `${item.categoryLabel} ${item.description} ${item.value} ${item.date}`
+        `${item.categoryLabel} ${item.description} ${item.value} ${item.date} ${item.source}`
           .toLowerCase()
           .includes(normalizedSearch)
       return monthMatch && yearMatch && typeMatch && categoryMatch && searchMatch
@@ -1517,7 +1660,7 @@ function DashboardPage({
 
     return filtered
   }, [
-    transactions,
+    dashboardEntries,
     summarySearch,
     summaryCategoryFilter,
     summaryMonthFilter,
@@ -2602,15 +2745,14 @@ function DashboardPage({
                       <select
                         value={summaryTypeFilter}
                         onChange={(event) =>
-                          setSummaryTypeFilter(
-                            event.target.value as 'todos' | TransactionType,
-                          )
+                          setSummaryTypeFilter(event.target.value as SummaryTypeFilter)
                         }
                         className="h-10 w-full rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface)] px-3"
                       >
                         <option value="todos">Todos</option>
                         <option value="receita">Receitas</option>
                         <option value="despesa">Despesas</option>
+                        <option value="recorrentes">Recorrentes</option>
                       </select>
                     </label>
 
@@ -2667,14 +2809,23 @@ function DashboardPage({
                                   {getCategoryDisplaySymbol(category)}
                                 </span>
                                 {item.categoryLabel} -{' '}
-                                {item.type === 'receita' ? 'Receita' : 'Despesa'}
+                                {item.source === 'recorrente'
+                                  ? item.type === 'receita'
+                                    ? 'Receita recorrente'
+                                    : 'Despesa recorrente'
+                                  : item.type === 'receita'
+                                    ? 'Receita'
+                                    : 'Despesa'}
                               </p>
                               <p className="text-sm text-[var(--m3-on-surface-variant)]">
-                                {item.description || 'Sem descricao'}
+                                {item.description ||
+                                  (item.source === 'recorrente'
+                                    ? `Lançamento recorrente (${formatRecurringFrequencyLabel(item.recurringFrequency ?? 'mensal')})`
+                                    : 'Sem descricao')}
                               </p>
                               <p className="mt-1 text-xs text-[var(--m3-on-surface-variant)]">
                                 {formatDate(item.date)}
-                                {item.installmentCount > 1
+                                {item.source === 'transacao' && item.installmentCount > 1
                                   ? ` - ${item.installmentNumber}/${item.installmentCount}x`
                                   : ''}
                               </p>
@@ -2690,13 +2841,35 @@ function DashboardPage({
                                 {item.type === 'receita' ? '+' : '-'}{' '}
                                 {formatCurrency(item.value)}
                               </p>
-                              <button
-                                type="button"
-                                onClick={() => onEditTransaction(item)}
-                                className="rounded-full border border-[var(--m3-outline-variant)] px-3 py-1 text-xs text-[var(--m3-on-surface-variant)] transition hover:bg-[var(--m3-surface-container)]"
-                              >
-                                Editar
-                              </button>
+                              {item.source === 'transacao' ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const originalTransaction = transactions.find(
+                                        (entry) => entry.id === item.id,
+                                      )
+                                      if (originalTransaction) {
+                                        onEditTransaction(originalTransaction)
+                                      }
+                                    }}
+                                    className="rounded-full border border-[var(--m3-outline-variant)] px-3 py-1 text-xs text-[var(--m3-on-surface-variant)] transition hover:bg-[var(--m3-surface-container)]"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void onDeleteTransaction(item.id)}
+                                    className="rounded-full border border-rose-500/35 px-3 py-1 text-xs text-rose-500 transition hover:bg-rose-500/15"
+                                  >
+                                    Excluir
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="rounded-full border border-[var(--m3-outline-variant)] px-3 py-1 text-xs text-[var(--m3-on-surface-variant)]">
+                                  Recorrente
+                                </span>
+                              )}
                             </div>
                           </article>
                         )
@@ -5269,6 +5442,26 @@ export default function App() {
     setEditingTransaction(null)
   }
 
+  const handleDeleteTransaction = async (id: string) => {
+    const context = await getDbContext()
+    if (context) {
+      const { error } = await context.db.from('transactions').delete().eq('id', id)
+      if (!error) {
+        setTransactions((previous) => previous.filter((item) => item.id !== id))
+        if (editingTransaction?.id === id) {
+          setEditingTransaction(null)
+        }
+        return
+      }
+      console.error('Falha ao excluir transação no Supabase:', error)
+    }
+
+    setTransactions((previous) => previous.filter((item) => item.id !== id))
+    if (editingTransaction?.id === id) {
+      setEditingTransaction(null)
+    }
+  }
+
   const handleCreateCategory = async (input: {
     type: TransactionType
     emoji: string
@@ -5612,6 +5805,7 @@ export default function App() {
                 goals={goals}
                 onOpenAdd={() => setIsAddModalOpen(true)}
                 onEditTransaction={(transaction) => setEditingTransaction(transaction)}
+                onDeleteTransaction={handleDeleteTransaction}
                 onCreateCategory={handleCreateCategory}
                 onCreateGoal={handleCreateGoal}
                 onUpdateGoal={handleUpdateGoal}
