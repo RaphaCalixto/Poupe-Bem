@@ -2732,8 +2732,8 @@ function DashboardPage({
                             className={cn(
                               'h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'receita'
-                                ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                                : 'border-emerald-500/35 bg-transparent text-emerald-400',
+                                ? 'border-emerald-600 bg-emerald-500/25 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-200'
+                                : 'border-emerald-500/45 bg-transparent text-emerald-800 dark:text-emerald-300',
                             )}
                           >
                             Receita
@@ -2744,8 +2744,8 @@ function DashboardPage({
                             className={cn(
                               'h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'despesa'
-                                ? 'border-rose-500 bg-rose-500/20 text-rose-300'
-                                : 'border-rose-500/35 bg-transparent text-rose-400',
+                                ? 'border-rose-600 bg-rose-500/25 text-rose-900 dark:border-rose-500 dark:bg-rose-500/20 dark:text-rose-200'
+                                : 'border-rose-500/45 bg-transparent text-rose-800 dark:text-rose-300',
                             )}
                           >
                             Despesa
@@ -4049,7 +4049,7 @@ function DashboardPage({
                         downloadReportPdf('annual', `relatorio-anual-${annualReportYear}.pdf`)
                       }
                       disabled={isGeneratingPdf !== null}
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-500/45 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-600/55 bg-emerald-500/22 px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-500/30 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Download className="h-4 w-4" />
                       {isGeneratingPdf === 'annual' ? 'Gerando PDF...' : 'Baixar PDF anual'}
