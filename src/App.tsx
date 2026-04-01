@@ -748,6 +748,20 @@ function splitAmountInInstallments(total: number, count: number) {
   })
 }
 
+function formatSummaryCardTitle(rawTitle: string) {
+  const normalized = rawTitle.trim().replace(/\s+/g, ' ')
+  const withoutTypeSuffix = normalized.replace(
+    /\s*-\s*(receita|despesa|despeza)(\s+recorrente)?\s*$/i,
+    '',
+  )
+  const safeTitle = (withoutTypeSuffix || normalized || 'Lançamento').trim()
+  const limited = Array.from(safeTitle).slice(0, 30).join('')
+  const firstLine = limited.slice(0, 15).trim()
+  const secondLine = limited.slice(15).trim()
+
+  return secondLine ? [firstLine, secondLine] : [firstLine || 'Lançamento']
+}
+
 function toDbTransactionRows(transactions: Transaction[], userId: string) {
   return transactions.map((item) => ({
     user_id: userId,
@@ -765,6 +779,44 @@ function toDbTransactionRows(transactions: Transaction[], userId: string) {
     payment_method: item.paymentMethod,
     card_provider: item.cardProvider,
   }))
+}
+
+function toDbTransactionRowsLegacy(transactions: Transaction[], userId: string) {
+  return transactions.map((item) => ({
+    user_id: userId,
+    group_id: item.groupId,
+    type: item.type,
+    category_key: item.categoryKey,
+    category_label: item.categoryLabel,
+    description: item.description || null,
+    amount: item.value,
+    entry_date: item.date,
+    first_installment_date: item.firstInstallmentDate,
+    installment_number: item.installmentNumber,
+    installment_count: item.installmentCount,
+  }))
+}
+
+function shouldRetryLegacyTransactionSchema(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const payload = [
+    'code' in error ? String(error.code ?? '') : '',
+    'message' in error ? String(error.message ?? '') : '',
+    'details' in error ? String(error.details ?? '') : '',
+    'hint' in error ? String(error.hint ?? '') : '',
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return (
+    payload.includes('title') ||
+    payload.includes('payment_method') ||
+    payload.includes('card_provider') ||
+    payload.includes('schema cache')
+  )
 }
 
 function mapDbTransactionRow(row: DbTransactionRow): Transaction {
@@ -2989,6 +3041,7 @@ function DashboardPage({
                             : item.type === 'receita'
                               ? 'border-emerald-500/45 bg-emerald-500/12'
                               : 'border-rose-500/45 bg-rose-500/12'
+                        const titleLines = formatSummaryCardTitle(item.title)
                         const descriptionText =
                           item.source === 'transacao' ? item.description || 'Sem descricao' : item.description || null
 
@@ -3005,7 +3058,13 @@ function DashboardPage({
                                 <span className="inline-flex h-4 w-4 items-center justify-center">
                                   {getCategoryDisplaySymbol(category)}
                                 </span>
-                                <span className="min-w-0 break-words">{item.title}</span>
+                                <span className="min-w-0">
+                                  {titleLines.map((line, index) => (
+                                    <span key={`${item.id}-title-${index}`} className="block break-words">
+                                      {line}
+                                    </span>
+                                  ))}
+                                </span>
                               </p>
                               <p className="text-sm text-[var(--m3-on-surface-variant)]">
                                 {item.source === 'transacao'
@@ -5728,9 +5787,16 @@ export default function App() {
     const context = await getDbContext()
 
     if (context) {
-      const { error } = await context.db
+      let { error } = await context.db
         .from('transactions')
         .insert(toDbTransactionRows(generatedTransactions, context.appUserId))
+
+      if (error && shouldRetryLegacyTransactionSchema(error)) {
+        const legacyResult = await context.db
+          .from('transactions')
+          .insert(toDbTransactionRowsLegacy(generatedTransactions, context.appUserId))
+        error = legacyResult.error
+      }
 
       if (!error) {
         const { data: dbTransactions, error: fetchError } = await context.db
@@ -5779,7 +5845,7 @@ export default function App() {
 
     const context = await getDbContext()
     if (context) {
-      const { error } = await context.db
+      let { error } = await context.db
         .from('transactions')
         .update({
           title,
@@ -5793,6 +5859,21 @@ export default function App() {
           card_provider: cardProvider,
         })
         .eq('id', id)
+
+      if (error && shouldRetryLegacyTransactionSchema(error)) {
+        const legacyResult = await context.db
+          .from('transactions')
+          .update({
+            type: form.type,
+            entry_date: form.date,
+            amount: parsedValue,
+            category_key: category.key,
+            category_label: category.label,
+            description: form.description.trim() || null,
+          })
+          .eq('id', id)
+        error = legacyResult.error
+      }
 
       if (!error) {
         const { data: dbTransactions, error: fetchError } = await context.db
