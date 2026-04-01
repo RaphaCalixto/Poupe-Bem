@@ -73,25 +73,6 @@ import authBackground from '../assets/controle-financeiro-clinica-fisioterapia.j
 import cardBackground from '../assets/finance-background-utqgb7jd02d72akj.jpg'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import type { IconType } from 'react-icons'
-import {
-  FaBriefcase,
-  FaBusSimple,
-  FaCartShopping,
-  FaGamepad,
-  FaGift,
-  FaGraduationCap,
-  FaHeartPulse,
-  FaHouse,
-  FaLightbulb,
-  FaMoneyBillTrendUp,
-  FaPizzaSlice,
-  FaReceipt,
-  FaSackDollar,
-  FaTag,
-  FaWallet,
-  FaWifi,
-} from 'react-icons/fa6'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -399,24 +380,6 @@ const summaryMonthOptions = [
 ] as const
 const reportPalette = ['#ff7b82', '#62d6d6', '#67a6ff', '#9bd7b5', '#f6b870', '#bfa2ff']
 const annualPalette = ['#22c55e', '#ef4444', '#3b82f6']
-const categoryIconChoices: Array<{ key: string; label: string; Icon: IconType }> = [
-  { key: 'briefcase', label: 'Trabalho', Icon: FaBriefcase },
-  { key: 'wallet', label: 'Carteira', Icon: FaWallet },
-  { key: 'gift', label: 'Presente', Icon: FaGift },
-  { key: 'gamepad', label: 'Lazer', Icon: FaGamepad },
-  { key: 'food', label: 'Comida', Icon: FaPizzaSlice },
-  { key: 'house', label: 'Casa', Icon: FaHouse },
-  { key: 'bus', label: 'Transporte', Icon: FaBusSimple },
-  { key: 'wifi', label: 'Internet', Icon: FaWifi },
-  { key: 'heart', label: 'Saúde', Icon: FaHeartPulse },
-  { key: 'graduation', label: 'Educação', Icon: FaGraduationCap },
-  { key: 'shopping', label: 'Compras', Icon: FaCartShopping },
-  { key: 'money', label: 'Dinheiro', Icon: FaMoneyBillTrendUp },
-  { key: 'receipt', label: 'Conta', Icon: FaReceipt },
-  { key: 'lamp', label: 'Energia', Icon: FaLightbulb },
-  { key: 'tag', label: 'Tag', Icon: FaTag },
-  { key: 'cash', label: 'Renda', Icon: FaSackDollar },
-]
 const categoryEmojiSuggestions = [
   '💡',
   '🏖️',
@@ -454,25 +417,13 @@ function getCategoryByKey(key: string, categories: CategoryDef[]) {
   return categories.find((category) => category.key === key)
 }
 
-function getCategoryIconComponent(iconKey?: string) {
-  return categoryIconChoices.find((item) => item.key === iconKey)?.Icon
-}
-
 function getCategoryDisplaySymbol(category?: CategoryDef) {
-  const Icon = getCategoryIconComponent(category?.iconKey)
-  if (Icon) {
-    return <Icon className="h-4 w-4 text-[var(--m3-on-surface-variant)]" />
-  }
-
   const emoji = category?.emoji?.trim()
   return <span>{emoji || '📌'}</span>
 }
 
 function getCategoryOptionLabel(category: CategoryDef) {
-  const iconLabel = category.iconKey
-    ? categoryIconChoices.find((item) => item.key === category.iconKey)?.label
-    : ''
-  const prefix = iconLabel ? `[${iconLabel}]` : category.emoji?.trim() || '📌'
+  const prefix = category.emoji?.trim() || '📌'
   return `${prefix} ${category.label}`
 }
 
@@ -823,18 +774,15 @@ function readStoredCustomCategories() {
         const key = String(item.key ?? '').trim()
         const label = String(item.label ?? '').trim()
         const emoji = String(item.emoji ?? '').trim()
-        const iconKey = String(item.iconKey ?? '').trim()
-
-        if (!key || !label || (!emoji && !iconKey)) {
+        if (!key || !label || !emoji) {
           return null
         }
 
         return {
           key,
           label,
-          emoji: emoji || '📌',
+          emoji,
           type,
-          ...(iconKey ? { iconKey } : {}),
         }
       })
       .filter((item): item is CategoryDef => item !== null)
@@ -1323,7 +1271,6 @@ function DashboardPage({
   >('todos')
   const [newCategoryType, setNewCategoryType] = useState<TransactionType>('despesa')
   const [newCategoryEmoji, setNewCategoryEmoji] = useState('')
-  const [newCategoryIconKey, setNewCategoryIconKey] = useState('')
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newThemeName, setNewThemeName] = useState('')
   const [newThemePrimaryColor, setNewThemePrimaryColor] = useState('#89a6ff')
@@ -1747,10 +1694,6 @@ function DashboardPage({
 
   const activeInvestmentsCount = investmentPositions.filter((item) => item.isActive).length
 
-  const incomeCategoriesView = useMemo(
-    () => getCategoriesByType('receita', categories),
-    [categories],
-  )
   const expenseCategoriesView = useMemo(
     () => getCategoriesByType('despesa', categories),
     [categories],
@@ -1859,7 +1802,7 @@ function DashboardPage({
     const label = newCategoryName.trim()
     const emoji = newCategoryEmoji.trim()
 
-    if (!label || (!emoji && !newCategoryIconKey)) {
+    if (!label || !emoji) {
       return
     }
 
@@ -1867,12 +1810,10 @@ function DashboardPage({
       type: newCategoryType,
       emoji,
       label,
-      iconKey: newCategoryIconKey || undefined,
     })
 
     setNewCategoryName('')
     setNewCategoryEmoji('')
-    setNewCategoryIconKey('')
   }
 
   const handleCreateThemeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -2789,7 +2730,7 @@ function DashboardPage({
                             type="button"
                             onClick={() => setNewCategoryType('receita')}
                             className={cn(
-                              'h-10 rounded-xl border text-sm font-semibold transition',
+                              'h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'receita'
                                 ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
                                 : 'border-emerald-500/35 bg-transparent text-emerald-400',
@@ -2801,7 +2742,7 @@ function DashboardPage({
                             type="button"
                             onClick={() => setNewCategoryType('despesa')}
                             className={cn(
-                              'h-10 rounded-xl border text-sm font-semibold transition',
+                              'h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'despesa'
                                 ? 'border-rose-500 bg-rose-500/20 text-rose-300'
                                 : 'border-rose-500/35 bg-transparent text-rose-400',
@@ -2812,72 +2753,33 @@ function DashboardPage({
                         </div>
                       </label>
                       <label className="space-y-1 text-sm md:col-span-1">
-                        <span>Emoji (opcional)</span>
+                        <span>Emoji</span>
                         <input
                           type="text"
                           value={newCategoryEmoji}
                           onChange={(event) => setNewCategoryEmoji(event.target.value)}
                           placeholder="Ex.: 💡"
                           className="h-10 w-full rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-3"
+                          required
                         />
                       </label>
                       <label className="space-y-1 text-sm md:col-span-3">
                         <span>Nome da categoria</span>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                           <input
                             type="text"
                             value={newCategoryName}
                             onChange={(event) => setNewCategoryName(event.target.value)}
                             placeholder="Ex.: Farmacia"
-                            className="h-10 flex-1 rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-3"
+                            className="h-10 min-w-0 w-full rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-3 sm:flex-1"
                             required
                           />
-                          <Button type="submit" className="h-10">
+                          <Button type="submit" className="h-10 w-full sm:w-auto">
                             Criar
                           </Button>
                         </div>
                       </label>
                     </form>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">Ícones da biblioteca</p>
-                        <button
-                          type="button"
-                          onClick={() => setNewCategoryIconKey('')}
-                          className={cn(
-                            'rounded-lg border px-3 py-1 text-xs transition',
-                            newCategoryIconKey
-                              ? 'border-[var(--m3-outline-variant)] text-[var(--m3-on-surface-variant)] hover:bg-[var(--m3-surface-container)]'
-                              : 'border-sky-500/50 bg-sky-500/10 text-sky-300',
-                          )}
-                        >
-                          Sem ícone
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
-                        {categoryIconChoices.map((item) => {
-                          const isActive = newCategoryIconKey === item.key
-                          return (
-                            <button
-                              key={item.key}
-                              type="button"
-                              onClick={() => setNewCategoryIconKey(item.key)}
-                              className={cn(
-                                'flex h-11 items-center justify-center rounded-lg border transition',
-                                isActive
-                                  ? 'border-sky-500 bg-sky-500/15 text-sky-300'
-                                  : 'border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] text-[var(--m3-on-surface-variant)] hover:bg-[var(--m3-surface-container)]',
-                              )}
-                              title={item.label}
-                              aria-label={`Selecionar ícone ${item.label}`}
-                            >
-                              <item.Icon className="h-4 w-4" />
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
 
                     <div className="flex flex-wrap gap-2">
                       {categoryEmojiSuggestions.map((emoji) => (
@@ -2891,35 +2793,6 @@ function DashboardPage({
                           {emoji}
                         </button>
                       ))}
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="space-y-2 rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] p-4">
-                        <p className="text-sm font-semibold">Receitas</p>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {incomeCategoriesView.map((category) => (
-                            <p key={category.key} className="flex items-center gap-2 text-sm">
-                              <span className="inline-flex h-4 w-4 items-center justify-center">
-                                {getCategoryDisplaySymbol(category)}
-                              </span>
-                              {category.label}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-2 rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] p-4">
-                        <p className="text-sm font-semibold">Despesas</p>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {expenseCategoriesView.map((category) => (
-                            <p key={category.key} className="flex items-center gap-2 text-sm">
-                              <span className="inline-flex h-4 w-4 items-center justify-center">
-                                {getCategoryDisplaySymbol(category)}
-                              </span>
-                              {category.label}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
                     </div>
                   </div>
 
@@ -5404,7 +5277,7 @@ export default function App() {
   }) => {
     const label = input.label.trim()
     const emoji = input.emoji.trim()
-    if (!label || (!emoji && !input.iconKey)) {
+    if (!label || !emoji) {
       return
     }
 
@@ -5414,8 +5287,8 @@ export default function App() {
         user_id: context.appUserId,
         type: input.type,
         label,
-        emoji: emoji || '📌',
-        icon_key: input.iconKey || null,
+        emoji,
+        icon_key: null,
         is_active: true,
       })
 
@@ -5456,8 +5329,7 @@ export default function App() {
           key,
           type: input.type,
           label,
-          emoji: emoji || '📌',
-          iconKey: input.iconKey,
+          emoji,
         },
       ]
     })
