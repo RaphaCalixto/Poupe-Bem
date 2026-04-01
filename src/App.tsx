@@ -169,6 +169,7 @@ interface InvestmentPosition {
 interface Transaction {
   id: string
   groupId: string
+  title: string
   type: TransactionType
   date: string
   value: number
@@ -189,6 +190,7 @@ interface DashboardEntry {
   id: string
   source: 'transacao' | 'recorrente'
   sourceId: string
+  title: string
   type: TransactionType
   date: string
   value: number
@@ -203,6 +205,7 @@ interface DashboardEntry {
 }
 
 interface TransactionFormState {
+  title: string
   type: TransactionType
   date: string
   value: string
@@ -217,6 +220,7 @@ interface TransactionFormState {
 interface DbTransactionRow {
   id: string
   group_id: string
+  title?: string | null
   type: TransactionType
   category_key: string
   category_label: string
@@ -704,6 +708,7 @@ function projectRecurringEntries(
             id: `rec-${item.id}-${isoDate}-${guard}`,
             source: 'recorrente',
             sourceId: item.id,
+            title: item.name,
             type: item.type,
             date: isoDate,
             value: item.amount,
@@ -747,6 +752,7 @@ function toDbTransactionRows(transactions: Transaction[], userId: string) {
   return transactions.map((item) => ({
     user_id: userId,
     group_id: item.groupId,
+    title: item.title,
     type: item.type,
     category_key: item.categoryKey,
     category_label: item.categoryLabel,
@@ -769,6 +775,7 @@ function mapDbTransactionRow(row: DbTransactionRow): Transaction {
   return {
     id: row.id,
     groupId: row.group_id,
+    title: row.title?.trim() || row.category_label,
     type: row.type,
     date: row.entry_date,
     value: Number(row.amount ?? 0),
@@ -941,6 +948,7 @@ function readStoredTransactions() {
         return {
           id: String(item.id ?? generateId()),
           groupId: String(item.groupId ?? generateId()),
+          title: String(item.title ?? item.categoryLabel ?? categoryKey ?? 'Lançamento'),
           type,
           date: String(item.date ?? getTodayDate()),
           value: Number(item.value ?? 0),
@@ -1611,6 +1619,7 @@ function DashboardPage({
         id: item.id,
         source: 'transacao' as const,
         sourceId: item.id,
+        title: item.title,
         type: item.type,
         date: item.date,
         value: item.value,
@@ -1803,7 +1812,7 @@ function DashboardPage({
         summaryCategoryFilter === 'all' || item.categoryKey === summaryCategoryFilter
       const searchMatch =
         normalizedSearch.length === 0 ||
-        `${item.categoryLabel} ${item.description} ${item.value} ${item.date} ${item.source} ${getPaymentMethodLabel(item.paymentMethod, item.cardProvider)}`
+        `${item.title} ${item.categoryLabel} ${item.description} ${item.value} ${item.date} ${item.source} ${getPaymentMethodLabel(item.paymentMethod, item.cardProvider)}`
           .toLowerCase()
           .includes(normalizedSearch)
       return monthMatch && yearMatch && typeMatch && categoryMatch && searchMatch
@@ -2974,31 +2983,35 @@ function DashboardPage({
                     ) : (
                       summaryItems.map((item) => {
                         const category = getCategoryByKey(item.categoryKey, categories)
+                        const transactionToneClass =
+                          item.source === 'recorrente'
+                            ? 'border-[var(--m3-outline-variant)] bg-[var(--m3-surface)]'
+                            : item.type === 'receita'
+                              ? 'border-emerald-500/45 bg-emerald-500/12'
+                              : 'border-rose-500/45 bg-rose-500/12'
 
                         return (
                           <article
                             key={item.id}
-                            className="glass-surface flex items-start justify-between gap-3 rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface)] p-4"
+                            className={cn(
+                              'glass-surface flex items-start justify-between gap-3 rounded-2xl border p-4',
+                              transactionToneClass,
+                            )}
                           >
                             <div>
                               <p className="flex items-center gap-2 text-sm font-medium">
                                 <span className="inline-flex h-4 w-4 items-center justify-center">
                                   {getCategoryDisplaySymbol(category)}
                                 </span>
-                                {item.categoryLabel} -{' '}
-                                {item.source === 'recorrente'
-                                  ? item.type === 'receita'
-                                    ? 'Receita recorrente'
-                                    : 'Despesa recorrente'
-                                  : item.type === 'receita'
-                                    ? 'Receita'
-                                    : 'Despesa'}
+                                {item.title}
+                                {item.source === 'transacao'
+                                  ? ` - ${item.type === 'receita' ? 'Receita' : 'Despesa'}`
+                                  : ''}
                               </p>
                               <p className="text-sm text-[var(--m3-on-surface-variant)]">
-                                {item.description ||
-                                  (item.source === 'recorrente'
-                                    ? `Lançamento recorrente (${formatRecurringFrequencyLabel(item.recurringFrequency ?? 'mensal')})`
-                                    : 'Sem descricao')}
+                                {item.source === 'recorrente'
+                                  ? `Lançamento recorrente (${formatRecurringFrequencyLabel(item.recurringFrequency ?? 'mensal')})`
+                                  : item.description || 'Sem descricao'}
                               </p>
                               <p className="mt-1 text-xs text-[var(--m3-on-surface-variant)]">
                                 {formatDate(item.date)}
@@ -4937,6 +4950,7 @@ function AddTransactionModal({
     getCategoriesByType('receita', categories)[0]?.key ?? ''
 
   const [formState, setFormState] = useState<TransactionFormState>({
+    title: '',
     type: 'despesa',
     date: getTodayDate(),
     value: '',
@@ -5014,6 +5028,20 @@ function AddTransactionModal({
               Despesa
             </button>
           </div>
+
+          <label className="space-y-2 text-sm">
+            <span>Nome</span>
+            <input
+              type="text"
+              value={formState.title}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, title: event.target.value }))
+              }
+              placeholder="Ex.: Mercado do mês"
+              className="h-11 w-full rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4"
+              required
+            />
+          </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-2 text-sm">
@@ -5242,6 +5270,7 @@ function EditTransactionModal({
   const [formState, setFormState] = useState<
     Omit<TransactionFormState, 'isInstallment' | 'installmentCount'>
   >({
+    title: transaction.title,
     type: transaction.type,
     date: transaction.date,
     value: String(transaction.value),
@@ -5315,6 +5344,19 @@ function EditTransactionModal({
               Despesa
             </button>
           </div>
+
+          <label className="space-y-2 text-sm">
+            <span>Nome</span>
+            <input
+              type="text"
+              value={formState.title}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, title: event.target.value }))
+              }
+              className="h-11 w-full rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4"
+              required
+            />
+          </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-2 text-sm">
@@ -5629,8 +5671,9 @@ export default function App() {
   }, [isAuthLoaded, isSignedIn, user?.id, getDbContext])
 
   const handleCreateTransaction = async (form: TransactionFormState) => {
+    const title = form.title.trim()
     const parsedValue = Number(form.value.replace(',', '.'))
-    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    if (!title || !Number.isFinite(parsedValue) || parsedValue <= 0) {
       return
     }
 
@@ -5664,6 +5707,7 @@ export default function App() {
       return {
         id: generateId(),
         groupId,
+        title,
         type: form.type,
         date: toIsoDate(installmentDate),
         value: installmentValue,
@@ -5712,8 +5756,9 @@ export default function App() {
     id: string,
     form: Omit<TransactionFormState, 'isInstallment' | 'installmentCount'>,
   ) => {
+    const title = form.title.trim()
     const parsedValue = Number(form.value.replace(',', '.'))
-    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    if (!title || !Number.isFinite(parsedValue) || parsedValue <= 0) {
       return
     }
 
@@ -5735,6 +5780,7 @@ export default function App() {
       const { error } = await context.db
         .from('transactions')
         .update({
+          title,
           type: form.type,
           entry_date: form.date,
           amount: parsedValue,
@@ -5767,6 +5813,7 @@ export default function App() {
         item.id === id
           ? {
               ...item,
+              title,
               type: form.type,
               date: form.date,
               value: parsedValue,
