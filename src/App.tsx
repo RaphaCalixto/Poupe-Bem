@@ -2989,30 +2989,32 @@ function DashboardPage({
                             : item.type === 'receita'
                               ? 'border-emerald-500/45 bg-emerald-500/12'
                               : 'border-rose-500/45 bg-rose-500/12'
+                        const descriptionText =
+                          item.source === 'transacao' ? item.description || 'Sem descricao' : item.description || null
 
                         return (
                           <article
                             key={item.id}
                             className={cn(
-                              'glass-surface flex items-start justify-between gap-3 rounded-2xl border p-4',
+                              'glass-surface flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-start sm:justify-between',
                               transactionToneClass,
                             )}
                           >
-                            <div>
-                              <p className="flex items-center gap-2 text-sm font-medium">
+                            <div className="min-w-0 flex-1">
+                              <p className="flex min-w-0 items-start gap-2 text-sm font-medium">
                                 <span className="inline-flex h-4 w-4 items-center justify-center">
                                   {getCategoryDisplaySymbol(category)}
                                 </span>
-                                {item.title}
-                                {item.source === 'transacao'
-                                  ? ` - ${item.type === 'receita' ? 'Receita' : 'Despesa'}`
-                                  : ''}
+                                <span className="min-w-0 break-words">{item.title}</span>
                               </p>
                               <p className="text-sm text-[var(--m3-on-surface-variant)]">
-                                {item.source === 'recorrente'
-                                  ? `Lançamento recorrente (${formatRecurringFrequencyLabel(item.recurringFrequency ?? 'mensal')})`
-                                  : item.description || 'Sem descricao'}
+                                {item.source === 'transacao'
+                                  ? `${item.type === 'receita' ? 'Receita' : 'Despesa'}`
+                                  : `Lançamento recorrente (${formatRecurringFrequencyLabel(item.recurringFrequency ?? 'mensal')})`}
                               </p>
+                              {descriptionText ? (
+                                <p className="text-sm text-[var(--m3-on-surface-variant)]">{descriptionText}</p>
+                              ) : null}
                               <p className="mt-1 text-xs text-[var(--m3-on-surface-variant)]">
                                 {formatDate(item.date)}
                                 {item.source === 'transacao' && item.installmentCount > 1
@@ -3025,19 +3027,19 @@ function DashboardPage({
                                 </p>
                               ) : null}
                             </div>
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="flex shrink-0 flex-col items-end gap-2 sm:pl-3">
                               <p
                                 className={`text-sm font-semibold ${
                                   item.type === 'receita'
-                                    ? 'text-emerald-600'
-                                    : 'text-rose-600'
+                                    ? 'text-emerald-700 dark:text-emerald-400'
+                                    : 'text-rose-800 dark:text-rose-500'
                                 }`}
                               >
                                 {item.type === 'receita' ? '+' : '-'}{' '}
                                 {formatCurrency(item.value)}
                               </p>
                               {item.source === 'transacao' ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap justify-end gap-2">
                                   <button
                                     type="button"
                                     onClick={() => {
