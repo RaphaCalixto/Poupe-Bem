@@ -37,6 +37,7 @@ import {
   Landmark,
   Lightbulb,
   Moon,
+  Menu,
   Plus,
   Receipt,
   ShoppingCart,
@@ -1625,6 +1626,7 @@ function DashboardPage({
   const [recurringReportMode, setRecurringReportMode] = useState<'mensal' | 'anual'>(
     'mensal',
   )
+  const [isDesktopNavCollapsed, setIsDesktopNavCollapsed] = useState(false)
   const [annualReportYear, setAnnualReportYear] = useState(getTodayDate().slice(0, 4))
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<null | 'monthly' | 'annual'>(
     null,
@@ -2888,7 +2890,83 @@ function DashboardPage({
 
   return (
     <main className="min-h-screen bg-[var(--m3-background)] px-4 py-8 text-[var(--m3-on-surface)] md:px-6">
-      <section className="mx-auto w-full max-w-6xl space-y-6">
+      <section className="mx-auto w-full max-w-7xl md:flex md:items-start md:gap-6">
+        <aside className="hidden md:sticky md:top-6 md:block">
+          <Card
+            className={cn(
+              'overflow-hidden rounded-[30px] border border-[#3d67c8]/35 bg-[linear-gradient(180deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] text-slate-100 shadow-[0_20px_45px_rgba(4,10,30,0.55)] backdrop-blur-xl transition-[width] duration-300',
+              isDesktopNavCollapsed ? 'md:w-[68px]' : 'md:w-[250px] lg:w-[280px]',
+            )}
+          >
+            <CardContent
+              className={cn(
+                'p-3',
+                isDesktopNavCollapsed ? 'flex items-center justify-center py-4' : 'space-y-3',
+              )}
+            >
+              <div
+                className={cn(
+                  'flex items-center',
+                  isDesktopNavCollapsed ? 'justify-center' : 'justify-between',
+                )}
+              >
+                {isDesktopNavCollapsed ? null : (
+                  <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-200/80">
+                    Navegacao
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsDesktopNavCollapsed((previous) => !previous)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-[#0a1633]/80 text-white transition hover:border-white/25 hover:bg-[#0a1633]"
+                  aria-label={
+                    isDesktopNavCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'
+                  }
+                  aria-expanded={!isDesktopNavCollapsed}
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+              </div>
+
+              {isDesktopNavCollapsed ? null : (
+                <>
+                  <nav className="space-y-2">
+                    {dashboardSections.map((item) => {
+                      const Icon = item.icon
+                      const isActive = item.key === activeSection
+
+                      return (
+                        <Link
+                          key={item.key}
+                          to={`/dashboard/${item.key}`}
+                          className={cn(
+                            'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition duration-200',
+                            isActive
+                              ? 'border-white/15 bg-[#0a1633]/90 text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)]'
+                              : 'border-transparent text-slate-200/90 hover:border-white/10 hover:bg-white/10 hover:text-white',
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </nav>
+                  <button
+                    type="button"
+                    onClick={onOpenAdd}
+                    className="w-full cursor-pointer rounded-full px-4 py-2 text-sm font-semibold text-slate-950 shadow-[var(--m3-elevation-2)] transition duration-200 hover:brightness-110 hover:shadow-[0_0_0_4px_rgba(52,211,153,0.25)]"
+                    style={{ backgroundColor: 'var(--pb-accent)' }}
+                  >
+                    + Adicionar
+                  </button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+
+        <div className="min-w-0 space-y-6 md:flex-1">
         <Card className="dashboard-header-glass">
           <CardHeader className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -4959,42 +5037,7 @@ function DashboardPage({
           </Card>
         )}
 
-        <Card className="hidden overflow-hidden rounded-[30px] border border-[#3d67c8]/35 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] shadow-[0_20px_45px_rgba(4,10,30,0.55)] backdrop-blur-xl lg:block">
-          <CardContent className="flex items-center gap-3 p-3">
-            <div className="min-w-0 flex-1 overflow-x-auto">
-              <nav className="flex min-w-[980px] gap-2">
-                {dashboardSections.map((item) => {
-                  const Icon = item.icon
-                  const isActive = item.key === activeSection
-
-                  return (
-                    <Link
-                      key={item.key}
-                      to={`/dashboard/${item.key}`}
-                      className={cn(
-                        'flex min-w-[98px] cursor-pointer flex-col items-center gap-1 rounded-xl border px-3 py-2 text-xs transition duration-200',
-                        isActive
-                          ? 'border-white/15 bg-[#0a1633]/90 text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)]'
-                          : 'border-transparent text-slate-200/85 hover:border-white/10 hover:bg-white/10 hover:text-white',
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </Link>
-                  )
-                })}
-              </nav>
-            </div>
-            <button
-              type="button"
-              onClick={onOpenAdd}
-              className="shrink-0 cursor-pointer rounded-full px-5 py-2 text-sm font-semibold text-slate-950 shadow-[var(--m3-elevation-2)] transition duration-200 hover:scale-105 hover:brightness-110 hover:shadow-[0_0_0_4px_rgba(52,211,153,0.25)] active:scale-100"
-              style={{ backgroundColor: 'var(--pb-accent)' }}
-            >
-              + Adicionar
-            </button>
-          </CardContent>
-        </Card>
+        </div>
       </section>
     </main>
   )
@@ -6303,7 +6346,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setIsMobileNavOpen((previous) => !previous)}
-          className="fixed bottom-6 right-6 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#3d67c8]/40 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] text-white shadow-[0_14px_28px_rgba(4,10,30,0.55)] backdrop-blur-xl transition hover:brightness-110 lg:hidden"
+          className="fixed bottom-6 right-6 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#3d67c8]/40 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] text-white shadow-[0_14px_28px_rgba(4,10,30,0.55)] backdrop-blur-xl transition hover:brightness-110 md:hidden"
           aria-expanded={isMobileNavOpen}
           aria-label="Abrir atalhos"
         >
@@ -6314,11 +6357,11 @@ export default function App() {
           <>
             <button
               type="button"
-              className="fixed inset-0 z-[86] bg-black/45 lg:hidden"
+              className="fixed inset-0 z-[86] bg-black/45 md:hidden"
               onClick={() => setIsMobileNavOpen(false)}
               aria-label="Fechar atalhos"
             />
-            <div className="fixed bottom-20 right-4 z-[87] w-[min(360px,calc(100vw-2rem))] rounded-3xl border border-[#3d67c8]/35 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] p-4 text-slate-100 shadow-[0_24px_45px_rgba(4,10,30,0.58)] backdrop-blur-xl lg:hidden">
+            <div className="fixed bottom-20 right-4 z-[87] w-[min(360px,calc(100vw-2rem))] rounded-3xl border border-[#3d67c8]/35 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] p-4 text-slate-100 shadow-[0_24px_45px_rgba(4,10,30,0.58)] backdrop-blur-xl md:hidden">
               <Button
                 type="button"
                 onClick={() => {
