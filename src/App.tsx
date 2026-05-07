@@ -83,6 +83,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 type TransactionType = 'receita' | 'despesa'
 type ThemeMode = 'light' | 'dark' | 'material-google'
+type ThemeGradientDirection = 'to-bottom' | 'to-right' | 'to-br' | 'to-bl' | 'to-tr' | 'to-tl'
 type RecurringFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'anual'
 type PaymentMethod = 'pix' | 'cartao'
 type CardProvider =
@@ -120,6 +121,7 @@ interface CustomTheme {
   navFrom: string
   navVia: string
   navTo: string
+  gradientDirection: ThemeGradientDirection
   createdAt: string
 }
 
@@ -291,6 +293,7 @@ interface DbUserThemeRow {
   nav_from: string
   nav_via: string
   nav_to: string
+  gradient_direction?: ThemeGradientDirection | null
   is_active: boolean
   created_at: string
 }
@@ -485,8 +488,21 @@ const defaultThemePreset: CustomTheme = {
   navFrom: '#1a2f66',
   navVia: '#132852',
   navTo: '#0f1f43',
+  gradientDirection: 'to-bottom',
   createdAt: new Date().toISOString(),
 }
+
+const themeGradientDirectionOptions: Array<{
+  value: ThemeGradientDirection
+  label: string
+}> = [
+  { value: 'to-bottom', label: 'Vertical' },
+  { value: 'to-right', label: 'Horizontal' },
+  { value: 'to-br', label: 'Diagonal baixo direita' },
+  { value: 'to-bl', label: 'Diagonal baixo esquerda' },
+  { value: 'to-tr', label: 'Diagonal cima direita' },
+  { value: 'to-tl', label: 'Diagonal cima esquerda' },
+]
 
 const themeModeOptions: Array<{
   value: ThemeMode
@@ -518,7 +534,31 @@ const materialGoogleTheme = {
   navFrom: '#6750A4',
   navVia: '#7D5260',
   navTo: '#633B48',
+  gradientDirection: '110deg',
   accent: '#EFB8C8',
+}
+
+function parseThemeGradientDirection(value: unknown): ThemeGradientDirection {
+  return themeGradientDirectionOptions.some((option) => option.value === value)
+    ? (value as ThemeGradientDirection)
+    : defaultThemePreset.gradientDirection
+}
+
+function getGradientDirectionCss(direction: ThemeGradientDirection) {
+  const map: Record<ThemeGradientDirection, string> = {
+    'to-bottom': 'to bottom',
+    'to-right': 'to right',
+    'to-br': 'to bottom right',
+    'to-bl': 'to bottom left',
+    'to-tr': 'to top right',
+    'to-tl': 'to top left',
+  }
+
+  return map[direction]
+}
+
+function getThemeGradient(theme: CustomTheme) {
+  return `linear-gradient(${getGradientDirectionCss(theme.gradientDirection)}, ${theme.navFrom}, ${theme.navVia}, ${theme.navTo})`
 }
 
 function getNextThemeMode(themeMode: ThemeMode): ThemeMode {
@@ -961,6 +1001,7 @@ function mapDbUserThemeRow(row: DbUserThemeRow): CustomTheme {
     navFrom: row.nav_from,
     navVia: row.nav_via,
     navTo: row.nav_to,
+    gradientDirection: parseThemeGradientDirection(row.gradient_direction),
     createdAt: row.created_at,
   }
 }
@@ -1155,6 +1196,7 @@ function readStoredThemes() {
         const navFrom = String(item.navFrom ?? '').trim()
         const navVia = String(item.navVia ?? '').trim()
         const navTo = String(item.navTo ?? '').trim()
+        const gradientDirection = parseThemeGradientDirection(item.gradientDirection)
 
         if (
           !id ||
@@ -1176,6 +1218,7 @@ function readStoredThemes() {
           navFrom,
           navVia,
           navTo,
+          gradientDirection,
           createdAt: String(item.createdAt ?? new Date().toISOString()),
         } satisfies CustomTheme
       })
@@ -1622,6 +1665,8 @@ function DashboardPage({
   const [newThemeNavFrom, setNewThemeNavFrom] = useState('#1a2f66')
   const [newThemeNavVia, setNewThemeNavVia] = useState('#132852')
   const [newThemeNavTo, setNewThemeNavTo] = useState('#0f1f43')
+  const [newThemeGradientDirection, setNewThemeGradientDirection] =
+    useState<ThemeGradientDirection>('to-bottom')
   const [newGoalName, setNewGoalName] = useState('')
   const [newGoalValue, setNewGoalValue] = useState('')
   const [newGoalDate, setNewGoalDate] = useState(getTodayDate())
@@ -2280,6 +2325,7 @@ function DashboardPage({
       navFrom: newThemeNavFrom,
       navVia: newThemeNavVia,
       navTo: newThemeNavTo,
+      gradientDirection: newThemeGradientDirection,
     })
 
     setNewThemeName('')
@@ -2973,7 +3019,7 @@ function DashboardPage({
         <aside className="hidden md:sticky md:top-6 md:block">
           <Card
             className={cn(
-              'overflow-hidden rounded-[30px] border border-[#3d67c8]/35 bg-[linear-gradient(180deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] text-slate-100 shadow-[0_20px_45px_rgba(4,10,30,0.55)] backdrop-blur-xl transition-[width] duration-300',
+              'theme-gradient-nav overflow-hidden rounded-[30px] border border-[#3d67c8]/35 text-slate-100 shadow-[0_20px_45px_rgba(4,10,30,0.55)] backdrop-blur-xl transition-[width] duration-300',
               isDesktopNavCollapsed ? 'md:w-[68px]' : 'md:w-[250px] lg:w-[280px]',
             )}
           >
@@ -3442,9 +3488,26 @@ function DashboardPage({
                           className="h-10 w-full rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface)] px-1"
                         />
                       </label>
-                      <div className="hidden md:block" />
                       <label className="space-y-1 text-sm">
-                        <span>Navbar início</span>
+                        <span>Direção do degradê</span>
+                        <select
+                          value={newThemeGradientDirection}
+                          onChange={(event) =>
+                            setNewThemeGradientDirection(
+                              parseThemeGradientDirection(event.target.value),
+                            )
+                          }
+                          className="h-10 w-full rounded-xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface)] px-3"
+                        >
+                          {themeGradientDirectionOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span>Degradê início</span>
                         <input
                           type="color"
                           value={newThemeNavFrom}
@@ -3453,7 +3516,7 @@ function DashboardPage({
                         />
                       </label>
                       <label className="space-y-1 text-sm">
-                        <span>Navbar meio</span>
+                        <span>Degradê meio</span>
                         <input
                           type="color"
                           value={newThemeNavVia}
@@ -3462,7 +3525,7 @@ function DashboardPage({
                         />
                       </label>
                       <label className="space-y-1 text-sm">
-                        <span>Navbar fim</span>
+                        <span>Degradê fim</span>
                         <input
                           type="color"
                           value={newThemeNavTo}
@@ -3511,19 +3574,13 @@ function DashboardPage({
                                 ) : null}
                               </div>
                             </div>
-                            <div className="mt-3 flex h-3 overflow-hidden rounded-full">
-                              <span
-                                className="block h-full flex-1"
-                                style={{ backgroundColor: theme.navFrom }}
-                              />
-                              <span
-                                className="block h-full flex-1"
-                                style={{ backgroundColor: theme.navVia }}
-                              />
-                              <span
-                                className="block h-full flex-1"
-                                style={{ backgroundColor: theme.navTo }}
-                              />
+                            <div
+                              className="mt-3 flex h-3 overflow-hidden rounded-full"
+                              style={{ background: getThemeGradient(theme) }}
+                            >
+                              <span className="block h-full flex-1" />
+                              <span className="block h-full flex-1" />
+                              <span className="block h-full flex-1" />
                               <span
                                 className="block h-full w-10"
                                 style={{ backgroundColor: theme.accentColor }}
@@ -5763,6 +5820,11 @@ export default function App() {
       root.style.setProperty('--pb-nav-from', materialGoogleTheme.navFrom)
       root.style.setProperty('--pb-nav-via', materialGoogleTheme.navVia)
       root.style.setProperty('--pb-nav-to', materialGoogleTheme.navTo)
+      root.style.setProperty('--pb-gradient-direction', materialGoogleTheme.gradientDirection)
+      root.style.setProperty(
+        '--pb-theme-gradient',
+        `linear-gradient(${materialGoogleTheme.gradientDirection}, ${materialGoogleTheme.navFrom}, ${materialGoogleTheme.navVia}, ${materialGoogleTheme.navTo})`,
+      )
       return
     }
 
@@ -5783,6 +5845,11 @@ export default function App() {
     root.style.setProperty('--pb-nav-from', activeTheme.navFrom)
     root.style.setProperty('--pb-nav-via', activeTheme.navVia)
     root.style.setProperty('--pb-nav-to', activeTheme.navTo)
+    root.style.setProperty(
+      '--pb-gradient-direction',
+      getGradientDirectionCss(activeTheme.gradientDirection),
+    )
+    root.style.setProperty('--pb-theme-gradient', getThemeGradient(activeTheme))
     root.style.setProperty('--m3-primary', activeTheme.primaryColor)
   }, [activeTheme, themeMode])
 
@@ -6196,6 +6263,7 @@ export default function App() {
         nav_from: input.navFrom,
         nav_via: input.navVia,
         nav_to: input.navTo,
+        gradient_direction: input.gradientDirection,
         is_active: false,
       })
 
@@ -6228,6 +6296,7 @@ export default function App() {
         navFrom: input.navFrom,
         navVia: input.navVia,
         navTo: input.navTo,
+        gradientDirection: input.gradientDirection,
         createdAt: new Date().toISOString(),
       }
       return [createdTheme, ...previous]
@@ -6475,7 +6544,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setIsMobileNavOpen((previous) => !previous)}
-          className="fixed bottom-6 right-6 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#3d67c8]/40 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] text-white shadow-[0_14px_28px_rgba(4,10,30,0.55)] backdrop-blur-xl transition hover:brightness-110 md:hidden"
+          className="theme-gradient-nav fixed bottom-6 right-6 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#3d67c8]/40 text-white shadow-[0_14px_28px_rgba(4,10,30,0.55)] backdrop-blur-xl transition hover:brightness-110 md:hidden"
           aria-expanded={isMobileNavOpen}
           aria-label="Abrir atalhos"
         >
@@ -6490,7 +6559,7 @@ export default function App() {
               onClick={() => setIsMobileNavOpen(false)}
               aria-label="Fechar atalhos"
             />
-            <div className="fixed bottom-20 right-4 z-[87] w-[min(360px,calc(100vw-2rem))] rounded-3xl border border-[#3d67c8]/35 bg-[linear-gradient(90deg,var(--pb-nav-from),var(--pb-nav-via),var(--pb-nav-to))] p-4 text-slate-100 shadow-[0_24px_45px_rgba(4,10,30,0.58)] backdrop-blur-xl md:hidden">
+            <div className="theme-gradient-nav fixed bottom-20 right-4 z-[87] w-[min(360px,calc(100vw-2rem))] rounded-3xl border border-[#3d67c8]/35 p-4 text-slate-100 shadow-[0_24px_45px_rgba(4,10,30,0.58)] backdrop-blur-xl md:hidden">
               <Button
                 type="button"
                 onClick={() => {

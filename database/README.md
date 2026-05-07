@@ -13,6 +13,7 @@ Arquivos SQL para copiar e colar no **SQL Editor** do Supabase.
 7. Rode [`007_user_categories_rls.sql`](./007_user_categories_rls.sql).
 8. Rode [`008_user_themes_rls.sql`](./008_user_themes_rls.sql).
 9. Rode [`009_payment_methods_transactions_recurring.sql`](./009_payment_methods_transactions_recurring.sql).
+10. Rode [`010_user_theme_gradient_direction.sql`](./010_user_theme_gradient_direction.sql).
 
 ## O que esse SQL cria
 
