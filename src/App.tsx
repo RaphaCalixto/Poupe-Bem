@@ -499,26 +499,26 @@ const themeModeOptions: Array<{
 ]
 
 const materialGoogleTheme = {
-  primary: '#6750A4',
-  onPrimary: '#FFFFFF',
-  secondary: '#625B71',
-  tertiary: '#7D5260',
-  surface: '#FFFBFE',
-  surfaceContainerLow: '#F7F2FA',
-  surfaceContainer: '#F3EDF7',
-  surfaceContainerHigh: '#ECE6F0',
+  primary: '#D0BCFF',
+  onPrimary: '#381E72',
+  secondary: '#CCC2DC',
+  tertiary: '#EFB8C8',
+  surface: '#141218',
+  surfaceContainerLow: '#1D1B20',
+  surfaceContainer: '#211F26',
+  surfaceContainerHigh: '#2B2930',
   background:
-    'linear-gradient(135deg, #FFFBFE 0%, #F7F2FA 28%, #EADDFF 58%, #FFD8E4 100%)',
-  onSurface: '#1D1B20',
-  onSurfaceVariant: '#49454F',
-  outline: '#79747E',
-  outlineVariant: '#CAC4D0',
-  secondaryContainer: '#E8DEF8',
-  onSecondaryContainer: '#1D192B',
-  navFrom: '#6750A4',
-  navVia: '#625B71',
-  navTo: '#4A4458',
-  accent: '#7D5260',
+    'linear-gradient(135deg, #141218 0%, #211F26 28%, #4A4458 62%, #633B48 100%)',
+  onSurface: '#E6E0E9',
+  onSurfaceVariant: '#CAC4D0',
+  outline: '#938F99',
+  outlineVariant: '#49454F',
+  secondaryContainer: '#4A4458',
+  onSecondaryContainer: '#E8DEF8',
+  navFrom: '#211F26',
+  navVia: '#4A4458',
+  navTo: '#633B48',
+  accent: '#EFB8C8',
 }
 
 function getNextThemeMode(themeMode: ThemeMode): ThemeMode {
@@ -2070,14 +2070,14 @@ function DashboardPage({
     () =>
       summaryMonthOptions.map((month) => {
         const monthKey = `${annualReportYear}-${month.value}`
-        const monthTransactions = transactions.filter((item) =>
+        const monthEntries = dashboardEntries.filter((item) =>
           item.date.startsWith(monthKey),
         )
 
-        const income = monthTransactions
+        const income = monthEntries
           .filter((item) => String(item.type).toLowerCase() === 'receita')
           .reduce((acc, item) => acc + Number(item.value || 0), 0)
-        const expense = monthTransactions
+        const expense = monthEntries
           .filter((item) => String(item.type).toLowerCase() === 'despesa')
           .reduce((acc, item) => acc + Number(item.value || 0), 0)
 
@@ -2089,7 +2089,7 @@ function DashboardPage({
           balance: income - expense,
         }
       }),
-    [annualReportYear, transactions],
+    [annualReportYear, dashboardEntries],
   )
 
   const annualIncomeTotal = annualMonthlyTotals.reduce(
@@ -5724,7 +5724,7 @@ export default function App() {
   }, [goals])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', themeMode === 'dark')
+    document.documentElement.classList.toggle('dark', themeMode !== 'light')
     document.documentElement.classList.toggle(
       'material-google',
       themeMode === 'material-google',
