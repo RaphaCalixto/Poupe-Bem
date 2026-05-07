@@ -53,6 +53,13 @@
 }
 
 :root.material-google {
+  --m3-material-card-gradient:
+    linear-gradient(
+      110deg,
+      rgba(103, 80, 164, 0.94),
+      rgba(125, 82, 96, 0.9),
+      rgba(99, 59, 72, 0.92)
+    );
   --m3-elevation-1:
     0 1px 2px rgba(29, 27, 32, 0.3), 0 1px 3px 1px rgba(29, 27, 32, 0.15);
   --m3-elevation-2:
@@ -125,6 +132,8 @@ body {
 }
 
 :root.material-google .glass-surface {
+  background: var(--m3-material-card-gradient);
+  border-color: rgba(239, 184, 200, 0.42);
   backdrop-filter: blur(24px) saturate(1.08);
   -webkit-backdrop-filter: blur(24px) saturate(1.08);
   box-shadow:
@@ -267,22 +276,36 @@ body {
 }
 
 :root.material-google .dashboard-header-glass {
-  background: linear-gradient(
-    110deg,
-    rgba(103, 80, 164, 0.94),
-    rgba(125, 82, 96, 0.9),
-    rgba(99, 59, 72, 0.92)
-  );
+  background: var(--m3-material-card-gradient);
   border-color: rgba(239, 184, 200, 0.42);
 }
 
+:root.material-google .meta-blue-card {
+  background: var(--m3-material-card-gradient);
+  border-color: rgba(239, 184, 200, 0.42);
+  color: #ffffff;
+  --m3-on-surface: #ffffff;
+  --m3-on-surface-variant: #f2dce4;
+  --m3-outline-variant: rgba(239, 184, 200, 0.42);
+  --m3-surface: rgba(33, 31, 38, 0.54);
+  --m3-surface-container: rgba(74, 68, 88, 0.46);
+  --m3-surface-container-low: rgba(33, 31, 38, 0.42);
+}
+
+:root.material-google .material-gradient-card {
+  background: var(--m3-material-card-gradient);
+  border-color: rgba(239, 184, 200, 0.42);
+  color: #ffffff;
+  --m3-on-surface: #ffffff;
+  --m3-on-surface-variant: #f2dce4;
+  --m3-outline-variant: rgba(239, 184, 200, 0.42);
+  --m3-surface: rgba(33, 31, 38, 0.54);
+  --m3-surface-container: rgba(74, 68, 88, 0.46);
+  --m3-surface-container-low: rgba(33, 31, 38, 0.42);
+}
+
 :root.material-google .summary-section-glass {
-  background: linear-gradient(
-    130deg,
-    rgba(103, 80, 164, 0.88),
-    rgba(98, 91, 113, 0.84),
-    rgba(125, 82, 96, 0.82)
-  );
+  background: var(--m3-material-card-gradient);
   border-color: rgba(232, 222, 248, 0.42);
   color: #ffffff;
   --m3-on-surface: #ffffff;
@@ -294,6 +317,6 @@ body {
 }
 
 :root.material-google .chart-evolution-glass {
-  background-color: rgba(103, 80, 164, 0.86);
-  border-color: rgba(232, 222, 248, 0.45);
+  background: var(--m3-material-card-gradient);
+  border-color: rgba(239, 184, 200, 0.42);
 }

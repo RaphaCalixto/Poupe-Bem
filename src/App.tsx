@@ -515,8 +515,8 @@ const materialGoogleTheme = {
   outlineVariant: '#49454F',
   secondaryContainer: '#4A4458',
   onSecondaryContainer: '#E8DEF8',
-  navFrom: '#211F26',
-  navVia: '#4A4458',
+  navFrom: '#6750A4',
+  navVia: '#7D5260',
   navTo: '#633B48',
   accent: '#EFB8C8',
 }
@@ -3077,7 +3077,7 @@ function DashboardPage({
                 return (
                   <Card
                     key={card.title}
-                    className={cn('border bg-[var(--m3-surface-container)]', colorClass)}
+                    className={cn('material-gradient-card border bg-[var(--m3-surface-container)]', colorClass)}
                   >
                     <CardHeader className="pb-2">
                       <CardDescription className="flex items-center justify-between">
@@ -3294,7 +3294,7 @@ function DashboardPage({
             </div>
           </>
         ) : (
-          <Card className="bg-[var(--m3-surface-container)]">
+          <Card className="material-gradient-card bg-[var(--m3-surface-container)]">
             <CardHeader>
               <CardDescription>{sectionTitleMap[activeSection].description}</CardDescription>
               <CardTitle>{sectionTitleMap[activeSection].title}</CardTitle>
