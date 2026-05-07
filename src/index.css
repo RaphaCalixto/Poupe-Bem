@@ -52,6 +52,13 @@
     0 6px 18px rgba(0, 0, 0, 0.45), 0 18px 36px rgba(0, 0, 0, 0.35);
 }
 
+:root.material-google {
+  --m3-elevation-1:
+    0 1px 2px rgba(29, 27, 32, 0.3), 0 1px 3px 1px rgba(29, 27, 32, 0.15);
+  --m3-elevation-2:
+    0 1px 2px rgba(29, 27, 32, 0.3), 0 2px 6px 2px rgba(29, 27, 32, 0.15);
+}
+
 body {
   margin: 0;
   background: var(--m3-background);
@@ -74,6 +81,15 @@ body {
   box-shadow:
     0 20px 42px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root.material-google .glass-surface {
+  backdrop-filter: blur(24px) saturate(1.08);
+  -webkit-backdrop-filter: blur(24px) saturate(1.08);
+  box-shadow:
+    0 1px 2px rgba(29, 27, 32, 0.3),
+    0 2px 6px 2px rgba(29, 27, 32, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .meta-blue-card {
@@ -168,4 +184,36 @@ body {
 :root.dark .chart-evolution-glass {
   background-color: rgba(14, 34, 82, 0.88);
   border-color: rgba(87, 131, 229, 0.45);
+}
+
+:root.material-google .dashboard-header-glass {
+  background: linear-gradient(
+    110deg,
+    rgba(103, 80, 164, 0.94),
+    rgba(98, 91, 113, 0.9),
+    rgba(74, 68, 88, 0.92)
+  );
+  border-color: rgba(202, 196, 208, 0.5);
+}
+
+:root.material-google .summary-section-glass {
+  background: linear-gradient(
+    130deg,
+    rgba(103, 80, 164, 0.88),
+    rgba(98, 91, 113, 0.84),
+    rgba(125, 82, 96, 0.82)
+  );
+  border-color: rgba(232, 222, 248, 0.42);
+  color: #ffffff;
+  --m3-on-surface: #ffffff;
+  --m3-on-surface-variant: #e8def8;
+  --m3-outline-variant: rgba(232, 222, 248, 0.45);
+  --m3-surface: rgba(33, 31, 38, 0.54);
+  --m3-surface-container: rgba(73, 69, 79, 0.52);
+  --m3-surface-container-low: rgba(33, 31, 38, 0.42);
+}
+
+:root.material-google .chart-evolution-glass {
+  background-color: rgba(103, 80, 164, 0.86);
+  border-color: rgba(232, 222, 248, 0.45);
 }

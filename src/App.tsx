@@ -38,6 +38,7 @@ import {
   Lightbulb,
   Moon,
   Menu,
+  Palette,
   Plus,
   Receipt,
   ShoppingCart,
@@ -81,7 +82,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 type TransactionType = 'receita' | 'despesa'
-type ThemeMode = 'light' | 'dark'
+type ThemeMode = 'light' | 'dark' | 'material-google'
 type RecurringFrequency = 'semanal' | 'quinzenal' | 'mensal' | 'anual'
 type PaymentMethod = 'pix' | 'cartao'
 type CardProvider =
@@ -317,7 +318,7 @@ interface DashboardPageProps {
   onDeleteGoal: (goalId: string) => void
   onAddGoalAmount: (goalId: string, amount: number) => void
   themeMode: ThemeMode
-  onToggleThemeMode: () => void
+  onThemeModeChange: (themeMode: ThemeMode) => void
   themePresets: CustomTheme[]
   activeThemeId: string
   onCreateTheme: (input: Omit<CustomTheme, 'id' | 'createdAt'>) => void | Promise<void>
@@ -485,6 +486,56 @@ const defaultThemePreset: CustomTheme = {
   navVia: '#132852',
   navTo: '#0f1f43',
   createdAt: new Date().toISOString(),
+}
+
+const themeModeOptions: Array<{
+  value: ThemeMode
+  label: string
+  Icon: LucideIcon
+}> = [
+  { value: 'dark', label: 'Escuro', Icon: Moon },
+  { value: 'light', label: 'Claro', Icon: Sun },
+  { value: 'material-google', label: 'Material 3 Google', Icon: Palette },
+]
+
+const materialGoogleTheme = {
+  primary: '#6750A4',
+  onPrimary: '#FFFFFF',
+  secondary: '#625B71',
+  tertiary: '#7D5260',
+  surface: '#FFFBFE',
+  surfaceContainerLow: '#F7F2FA',
+  surfaceContainer: '#F3EDF7',
+  surfaceContainerHigh: '#ECE6F0',
+  background: '#FFFBFE',
+  onSurface: '#1D1B20',
+  onSurfaceVariant: '#49454F',
+  outline: '#79747E',
+  outlineVariant: '#CAC4D0',
+  secondaryContainer: '#E8DEF8',
+  onSecondaryContainer: '#1D192B',
+  navFrom: '#6750A4',
+  navVia: '#625B71',
+  navTo: '#4A4458',
+  accent: '#7D5260',
+}
+
+function getNextThemeMode(themeMode: ThemeMode): ThemeMode {
+  if (themeMode === 'dark') {
+    return 'light'
+  }
+
+  if (themeMode === 'light') {
+    return 'material-google'
+  }
+
+  return 'dark'
+}
+
+function getThemeModeLabel(themeMode: ThemeMode) {
+  return (
+    themeModeOptions.find((option) => option.value === themeMode)?.label ?? 'Escuro'
+  )
 }
 
 function getTodayDate() {
@@ -1353,7 +1404,7 @@ function getInitialThemeMode(): ThemeMode {
   }
 
   const stored = window.localStorage.getItem(themeStorageKey)
-  if (stored === 'dark' || stored === 'light') {
+  if (stored === 'dark' || stored === 'light' || stored === 'material-google') {
     return stored
   }
 
@@ -1537,7 +1588,7 @@ function DashboardPage({
   onDeleteGoal,
   onAddGoalAmount,
   themeMode,
-  onToggleThemeMode,
+  onThemeModeChange,
   themePresets,
   activeThemeId,
   onCreateTheme,
@@ -2027,10 +2078,14 @@ function DashboardPage({
     .reduce((acc, item) => acc + item.value, 0)
   const annualBalanceTotal = annualIncomeTotal - annualExpenseTotal
   const annualAverageBalance = annualBalanceTotal / 12
+  const annualChartData = [
+    { label: 'Entradas', value: annualIncomeTotal, color: annualPalette[0] },
+    { label: 'Saídas', value: annualExpenseTotal, color: annualPalette[1] },
+  ].filter((item) => item.value > 0)
   const annualOverviewData = [
     { label: 'Entradas', value: annualIncomeTotal, color: annualPalette[0] },
     { label: 'Saídas', value: annualExpenseTotal, color: annualPalette[1] },
-    { label: 'Saldo Final', value: Math.max(annualBalanceTotal, 0), color: annualPalette[2] },
+    { label: 'Saldo Final', value: annualBalanceTotal, color: annualPalette[2] },
   ]
 
   const investmentPortfolioData = useMemo(
@@ -3239,8 +3294,8 @@ function DashboardPage({
                             className={cn(
                               'h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'receita'
-                                ? 'border-emerald-600 bg-emerald-500/25 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-200'
-                                : 'border-emerald-500/45 bg-transparent text-emerald-800 dark:text-emerald-300',
+                                ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm dark:border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-200'
+                                : 'border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 dark:border-emerald-500/45 dark:bg-transparent dark:text-emerald-300',
                             )}
                           >
                             Receita
@@ -3251,8 +3306,8 @@ function DashboardPage({
                             className={cn(
                               'h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'despesa'
-                                ? 'border-rose-600 bg-rose-500/25 text-rose-900 dark:border-rose-500 dark:bg-rose-500/20 dark:text-rose-200'
-                                : 'border-rose-500/45 bg-transparent text-rose-800 dark:text-rose-300',
+                                ? 'border-rose-800 bg-rose-800 text-white shadow-sm dark:border-rose-500 dark:bg-rose-500/20 dark:text-rose-200'
+                                : 'border-rose-700 bg-rose-700 text-white hover:bg-rose-800 dark:border-rose-500/45 dark:bg-transparent dark:text-rose-300',
                             )}
                           >
                             Despesa
@@ -3306,14 +3361,28 @@ function DashboardPage({
                   <div className="glass-surface space-y-4 rounded-2xl border border-[var(--m3-outline-variant)] bg-[var(--m3-surface)] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-base font-semibold">Temas do sistema</p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onToggleThemeMode}
-                        className="h-9"
-                      >
-                        {themeMode === 'dark' ? 'Modo escuro ativo' : 'Modo claro ativo'}
-                      </Button>
+                      <div className="flex rounded-full border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] p-1">
+                        {themeModeOptions.map(({ value, label, Icon }) => {
+                          const isActiveMode = themeMode === value
+
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => onThemeModeChange(value)}
+                              className={cn(
+                                'inline-flex h-9 items-center gap-2 rounded-full px-3 text-xs font-semibold transition',
+                                isActiveMode
+                                  ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)] shadow-[var(--m3-elevation-1)]'
+                                  : 'text-[var(--m3-on-surface-variant)] hover:bg-[var(--m3-surface-container)]',
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     <form
@@ -4586,7 +4655,7 @@ function DashboardPage({
                         downloadReportPdf('monthly', `relatorio-mensal-${reportYear}-${reportMonth}.pdf`)
                       }
                       disabled={isGeneratingPdf !== null}
-                      className="inline-flex items-center gap-2 rounded-full border border-[var(--m3-outline-variant)] bg-[var(--m3-surface-container-low)] px-4 py-2 text-sm font-medium text-[var(--m3-on-surface)] transition hover:bg-[var(--m3-surface-container)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-950 dark:border-[var(--m3-outline-variant)] dark:bg-[var(--m3-surface-container-low)] dark:text-[var(--m3-on-surface)] dark:hover:bg-[var(--m3-surface-container)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Download className="h-4 w-4" />
                       {isGeneratingPdf === 'monthly' ? 'Gerando PDF...' : 'Baixar PDF mensal'}
@@ -4597,7 +4666,7 @@ function DashboardPage({
                         downloadReportPdf('annual', `relatorio-anual-${annualReportYear}.pdf`)
                       }
                       disabled={isGeneratingPdf !== null}
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-600/55 bg-emerald-500/22 px-4 py-2 text-sm font-semibold text-black transition hover:bg-emerald-500/30 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-full border border-emerald-800 bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-950 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Download className="h-4 w-4" />
                       {isGeneratingPdf === 'annual' ? 'Gerando PDF...' : 'Baixar PDF anual'}
@@ -4873,7 +4942,7 @@ function DashboardPage({
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
-                                data={annualOverviewData}
+                                data={annualChartData}
                                 dataKey="value"
                                 nameKey="label"
                                 cx="50%"
@@ -4881,7 +4950,7 @@ function DashboardPage({
                                 innerRadius={58}
                                 outerRadius={105}
                               >
-                                {annualOverviewData.map((entry) => (
+                                {annualChartData.map((entry) => (
                                   <Cell key={entry.label} fill={entry.color} />
                                 ))}
                               </Pie>
@@ -5632,6 +5701,10 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', themeMode === 'dark')
+    document.documentElement.classList.toggle(
+      'material-google',
+      themeMode === 'material-google',
+    )
     window.localStorage.setItem(themeStorageKey, themeMode)
   }, [themeMode])
 
@@ -5647,13 +5720,47 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement
+    if (themeMode === 'material-google') {
+      root.style.setProperty('--m3-background', materialGoogleTheme.background)
+      root.style.setProperty('--m3-surface', materialGoogleTheme.surface)
+      root.style.setProperty('--m3-surface-container-low', materialGoogleTheme.surfaceContainerLow)
+      root.style.setProperty('--m3-surface-container', materialGoogleTheme.surfaceContainer)
+      root.style.setProperty('--m3-surface-container-high', materialGoogleTheme.surfaceContainerHigh)
+      root.style.setProperty('--m3-primary', materialGoogleTheme.primary)
+      root.style.setProperty('--m3-on-primary', materialGoogleTheme.onPrimary)
+      root.style.setProperty('--m3-on-surface', materialGoogleTheme.onSurface)
+      root.style.setProperty('--m3-on-surface-variant', materialGoogleTheme.onSurfaceVariant)
+      root.style.setProperty('--m3-outline', materialGoogleTheme.outline)
+      root.style.setProperty('--m3-outline-variant', materialGoogleTheme.outlineVariant)
+      root.style.setProperty('--m3-secondary-container', materialGoogleTheme.secondaryContainer)
+      root.style.setProperty('--m3-on-secondary-container', materialGoogleTheme.onSecondaryContainer)
+      root.style.setProperty('--pb-primary', materialGoogleTheme.primary)
+      root.style.setProperty('--pb-accent', materialGoogleTheme.accent)
+      root.style.setProperty('--pb-nav-from', materialGoogleTheme.navFrom)
+      root.style.setProperty('--pb-nav-via', materialGoogleTheme.navVia)
+      root.style.setProperty('--pb-nav-to', materialGoogleTheme.navTo)
+      return
+    }
+
+    root.style.removeProperty('--m3-background')
+    root.style.removeProperty('--m3-surface')
+    root.style.removeProperty('--m3-surface-container-low')
+    root.style.removeProperty('--m3-surface-container')
+    root.style.removeProperty('--m3-surface-container-high')
+    root.style.removeProperty('--m3-on-primary')
+    root.style.removeProperty('--m3-on-surface')
+    root.style.removeProperty('--m3-on-surface-variant')
+    root.style.removeProperty('--m3-outline')
+    root.style.removeProperty('--m3-outline-variant')
+    root.style.removeProperty('--m3-secondary-container')
+    root.style.removeProperty('--m3-on-secondary-container')
     root.style.setProperty('--pb-primary', activeTheme.primaryColor)
     root.style.setProperty('--pb-accent', activeTheme.accentColor)
     root.style.setProperty('--pb-nav-from', activeTheme.navFrom)
     root.style.setProperty('--pb-nav-via', activeTheme.navVia)
     root.style.setProperty('--pb-nav-to', activeTheme.navTo)
     root.style.setProperty('--m3-primary', activeTheme.primaryColor)
-  }, [activeTheme])
+  }, [activeTheme, themeMode])
 
   useEffect(() => {
     setIsMobileNavOpen(false)
@@ -6326,9 +6433,7 @@ export default function App() {
                 onDeleteGoal={handleDeleteGoal}
                 onAddGoalAmount={handleAddGoalAmount}
                 themeMode={themeMode}
-                onToggleThemeMode={() =>
-                  setThemeMode((previous) => (previous === 'dark' ? 'light' : 'dark'))
-                }
+                onThemeModeChange={setThemeMode}
                 themePresets={themePresets}
                 activeThemeId={activeThemeId}
                 onCreateTheme={handleCreateTheme}
@@ -6404,14 +6509,15 @@ export default function App() {
 
       <button
         type="button"
-        onClick={() =>
-          setThemeMode((previous) => (previous === 'dark' ? 'light' : 'dark'))
-        }
+        onClick={() => setThemeMode((previous) => getNextThemeMode(previous))}
         className="fixed bottom-6 left-6 z-[90] inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--m3-outline-variant)] bg-[var(--m3-surface)] text-[var(--m3-on-surface)] shadow-[var(--m3-elevation-1)] transition hover:bg-[var(--m3-surface-container)]"
-        aria-label="Alternar tema"
+        aria-label={`Alternar tema. Atual: ${getThemeModeLabel(themeMode)}`}
+        title={`Tema atual: ${getThemeModeLabel(themeMode)}`}
       >
         {themeMode === 'dark' ? (
           <Sun className="h-5 w-5" />
+        ) : themeMode === 'light' ? (
+          <Palette className="h-5 w-5" />
         ) : (
           <Moon className="h-5 w-5" />
         )}
