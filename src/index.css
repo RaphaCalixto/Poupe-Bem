@@ -69,6 +69,43 @@ body {
   background: var(--m3-background);
 }
 
+.category-type-button {
+  color: #ffffff;
+}
+
+.category-type-income {
+  background-color: #047857;
+  border-color: #065f46;
+}
+
+.category-type-income:hover,
+.category-type-income.category-type-active {
+  background-color: #065f46;
+  border-color: #064e3b;
+}
+
+.category-type-expense {
+  background-color: #be123c;
+  border-color: #9f1239;
+}
+
+.category-type-expense:hover,
+.category-type-expense.category-type-active {
+  background-color: #9f1239;
+  border-color: #881337;
+}
+
+.report-annual-pdf-button {
+  background-color: #b91c1c;
+  border-color: #991b1b;
+  color: #ffffff;
+}
+
+.report-annual-pdf-button:hover {
+  background-color: #991b1b;
+  border-color: #7f1d1d;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -190,14 +227,53 @@ body {
   border-color: rgba(87, 131, 229, 0.45);
 }
 
+:root.dark .category-type-button {
+  background-color: transparent;
+}
+
+:root.dark .category-type-income {
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #6ee7b7;
+}
+
+:root.dark .category-type-income:hover,
+:root.dark .category-type-income.category-type-active {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #a7f3d0;
+}
+
+:root.dark .category-type-expense {
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fda4af;
+}
+
+:root.dark .category-type-expense:hover,
+:root.dark .category-type-expense.category-type-active {
+  background-color: rgba(244, 63, 94, 0.2);
+  border-color: #f43f5e;
+  color: #fecdd3;
+}
+
+:root.dark .report-annual-pdf-button {
+  background-color: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #a7f3d0;
+}
+
+:root.dark .report-annual-pdf-button:hover {
+  background-color: rgba(16, 185, 129, 0.25);
+  border-color: rgba(16, 185, 129, 0.65);
+}
+
 :root.material-google .dashboard-header-glass {
   background: linear-gradient(
     110deg,
     rgba(103, 80, 164, 0.94),
-    rgba(98, 91, 113, 0.9),
-    rgba(74, 68, 88, 0.92)
+    rgba(125, 82, 96, 0.9),
+    rgba(99, 59, 72, 0.92)
   );
-  border-color: rgba(202, 196, 208, 0.5);
+  border-color: rgba(239, 184, 200, 0.42);
 }
 
 :root.material-google .summary-section-glass {

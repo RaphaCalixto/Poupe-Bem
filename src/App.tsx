@@ -3316,10 +3316,10 @@ function DashboardPage({
                             type="button"
                             onClick={() => setNewCategoryType('receita')}
                             className={cn(
-                              'h-10 w-full rounded-xl border text-sm font-semibold transition',
+                              'category-type-button category-type-income h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'receita'
-                                ? 'border-emerald-800 bg-emerald-800 text-white shadow-sm dark:border-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-200'
-                                : 'border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 dark:border-emerald-500/45 dark:bg-transparent dark:text-emerald-300',
+                                ? 'category-type-active shadow-sm'
+                                : 'category-type-idle',
                             )}
                           >
                             Receita
@@ -3328,10 +3328,10 @@ function DashboardPage({
                             type="button"
                             onClick={() => setNewCategoryType('despesa')}
                             className={cn(
-                              'h-10 w-full rounded-xl border text-sm font-semibold transition',
+                              'category-type-button category-type-expense h-10 w-full rounded-xl border text-sm font-semibold transition',
                               newCategoryType === 'despesa'
-                                ? 'border-rose-800 bg-rose-800 text-white shadow-sm dark:border-rose-500 dark:bg-rose-500/20 dark:text-rose-200'
-                                : 'border-rose-700 bg-rose-700 text-white hover:bg-rose-800 dark:border-rose-500/45 dark:bg-transparent dark:text-rose-300',
+                                ? 'category-type-active shadow-sm'
+                                : 'category-type-idle',
                             )}
                           >
                             Despesa
@@ -4690,7 +4690,7 @@ function DashboardPage({
                         downloadReportPdf('annual', `relatorio-anual-${annualReportYear}.pdf`)
                       }
                       disabled={isGeneratingPdf !== null}
-                      className="inline-flex items-center gap-2 rounded-full border border-emerald-800 bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-950 dark:border-emerald-500/45 dark:bg-emerald-500/15 dark:text-emerald-200 dark:hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="report-annual-pdf-button inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Download className="h-4 w-4" />
                       {isGeneratingPdf === 'annual' ? 'Gerando PDF...' : 'Baixar PDF anual'}
