@@ -507,7 +507,8 @@ const materialGoogleTheme = {
   surfaceContainerLow: '#F7F2FA',
   surfaceContainer: '#F3EDF7',
   surfaceContainerHigh: '#ECE6F0',
-  background: '#FFFBFE',
+  background:
+    'linear-gradient(135deg, #FFFBFE 0%, #F7F2FA 28%, #EADDFF 58%, #FFD8E4 100%)',
   onSurface: '#1D1B20',
   onSurfaceVariant: '#49454F',
   outline: '#79747E',
@@ -2065,17 +2066,40 @@ function DashboardPage({
     0,
   )
 
-  const annualTransactions = useMemo(
-    () => transactions.filter((item) => item.date.slice(0, 4) === annualReportYear),
-    [transactions, annualReportYear],
+  const annualMonthlyTotals = useMemo(
+    () =>
+      summaryMonthOptions.map((month) => {
+        const monthKey = `${annualReportYear}-${month.value}`
+        const monthTransactions = transactions.filter((item) =>
+          item.date.startsWith(monthKey),
+        )
+
+        const income = monthTransactions
+          .filter((item) => String(item.type).toLowerCase() === 'receita')
+          .reduce((acc, item) => acc + Number(item.value || 0), 0)
+        const expense = monthTransactions
+          .filter((item) => String(item.type).toLowerCase() === 'despesa')
+          .reduce((acc, item) => acc + Number(item.value || 0), 0)
+
+        return {
+          month: month.label,
+          monthKey,
+          income,
+          expense,
+          balance: income - expense,
+        }
+      }),
+    [annualReportYear, transactions],
   )
 
-  const annualIncomeTotal = annualTransactions
-    .filter((item) => item.type === 'receita')
-    .reduce((acc, item) => acc + item.value, 0)
-  const annualExpenseTotal = annualTransactions
-    .filter((item) => item.type === 'despesa')
-    .reduce((acc, item) => acc + item.value, 0)
+  const annualIncomeTotal = annualMonthlyTotals.reduce(
+    (acc, item) => acc + item.income,
+    0,
+  )
+  const annualExpenseTotal = annualMonthlyTotals.reduce(
+    (acc, item) => acc + item.expense,
+    0,
+  )
   const annualBalanceTotal = annualIncomeTotal - annualExpenseTotal
   const annualAverageBalance = annualBalanceTotal / 12
   const annualChartData = [
@@ -2944,7 +2968,7 @@ function DashboardPage({
   )
 
   return (
-    <main className="min-h-screen bg-[var(--m3-background)] px-4 py-8 text-[var(--m3-on-surface)] md:px-6">
+    <main className="dashboard-shell min-h-screen px-4 py-8 text-[var(--m3-on-surface)] md:px-6">
       <section className="mx-auto w-full max-w-7xl md:flex md:items-start md:gap-6">
         <aside className="hidden md:sticky md:top-6 md:block">
           <Card
@@ -4981,19 +5005,19 @@ function DashboardPage({
                           ))}
                           <div className="grid gap-2 sm:grid-cols-3">
                             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2 text-center">
-                              <p className="text-xs text-emerald-200">Entradas</p>
+                              <p className="text-xs text-emerald-200">Entradas em {annualReportYear}</p>
                               <p className="font-semibold text-emerald-300">
                                 {formatCurrency(annualIncomeTotal)}
                               </p>
                             </div>
                             <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2 text-center">
-                              <p className="text-xs text-rose-200">Saidas</p>
+                              <p className="text-xs text-rose-200">Saidas em {annualReportYear}</p>
                               <p className="font-semibold text-rose-300">
                                 {formatCurrency(annualExpenseTotal)}
                               </p>
                             </div>
                             <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2 text-center">
-                              <p className="text-xs text-sky-200">Saldo final</p>
+                              <p className="text-xs text-sky-200">Saldo de {annualReportYear}</p>
                               <p className="font-semibold text-sky-300">
                                 {formatCurrency(annualBalanceTotal)}
                               </p>

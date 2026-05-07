@@ -65,6 +65,10 @@ body {
   color: var(--m3-on-surface);
 }
 
+.dashboard-shell {
+  background: var(--m3-background);
+}
+
 #root {
   min-height: 100vh;
 }
